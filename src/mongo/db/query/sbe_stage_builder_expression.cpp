@@ -1157,54 +1157,62 @@ public:
         unsupportedExpression(expr->getOpName());
     }
     void visit(ExpressionArrayElemAt* expr) final {
+        using namespace mongo::sbe_ctp;
         _context->ensureArity(2);
 
         auto index = _context->popExpr();
         auto array = _context->popExpr();
+        auto placeholderList = sbe::makeEs(std::move(array), std::move(index));
 
-        auto frameId = _context->frameIdGenerator->generate();
-        auto binds = sbe::makeEs(std::move(array), std::move(index));
-        sbe::EVariable arrayRef{frameId, 0};
-        sbe::EVariable indexRef{frameId, 1};
+        constexpr auto code = "getElement({0}, {1})"_sbe;
 
-        auto int32Index = [&]() {
-            auto convertedIndex = sbe::makeE<sbe::ENumericConvert>(
-                indexRef.clone(), sbe::value::TypeTags::NumberInt32);
-            auto frameId = _context->frameIdGenerator->generate();
-            auto binds = sbe::makeEs(std::move(convertedIndex));
-            sbe::EVariable convertedIndexRef{frameId, 0};
+        auto resultExpr = code.build(placeholderList);
 
-            auto inExpression = sbe::makeE<sbe::EIf>(
-                sbe::makeE<sbe::EFunction>("exists", sbe::makeEs(convertedIndexRef.clone())),
-                convertedIndexRef.clone(),
-                sbe::makeE<sbe::EFail>(
-                    ErrorCodes::Error{5126703},
-                    "$arrayElemAt second argument cannot be represented as a 32-bit integer"));
+        _context->pushExpr(std::move(resultExpr));
 
-            return sbe::makeE<sbe::ELocalBind>(frameId, std::move(binds), std::move(inExpression));
-        }();
+        // auto frameId = _context->frameIdGenerator->generate();
+        // auto binds = sbe::makeEs(std::move(array), std::move(index));
+        // sbe::EVariable arrayRef{frameId, 0};
+        // sbe::EVariable indexRef{frameId, 1};
 
-        auto anyOfArgumentsIsNullish =
-            sbe::makeE<sbe::EPrimBinary>(sbe::EPrimBinary::logicOr,
-                                         generateNullOrMissing(arrayRef),
-                                         generateNullOrMissing(indexRef));
-        auto firstArgumentIsNotArray =
-            makeNot(sbe::makeE<sbe::EFunction>("isArray", sbe::makeEs(arrayRef.clone())));
-        auto secondArgumentIsNotNumeric = generateNonNumericCheck(indexRef);
-        auto arrayElemAtExpr = buildMultiBranchConditional(
-            CaseValuePair{std::move(anyOfArgumentsIsNullish),
-                          sbe::makeE<sbe::EConstant>(sbe::value::TypeTags::Null, 0)},
-            CaseValuePair{std::move(firstArgumentIsNotArray),
-                          sbe::makeE<sbe::EFail>(ErrorCodes::Error{5126701},
-                                                 "$arrayElemAt first argument must be an array")},
-            CaseValuePair{std::move(secondArgumentIsNotNumeric),
-                          sbe::makeE<sbe::EFail>(ErrorCodes::Error{5126702},
-                                                 "$arrayElemAt second argument must be a number")},
-            sbe::makeE<sbe::EFunction>("getElement",
-                                       sbe::makeEs(arrayRef.clone(), std::move(int32Index))));
+        // auto int32Index = [&]() {
+        //     auto convertedIndex = sbe::makeE<sbe::ENumericConvert>(
+        //         indexRef.clone(), sbe::value::TypeTags::NumberInt32);
+        //     auto frameId = _context->frameIdGenerator->generate();
+        //     auto binds = sbe::makeEs(std::move(convertedIndex));
+        //     sbe::EVariable convertedIndexRef{frameId, 0};
 
-        _context->pushExpr(
-            sbe::makeE<sbe::ELocalBind>(frameId, std::move(binds), std::move(arrayElemAtExpr)));
+        //     auto inExpression = sbe::makeE<sbe::EIf>(
+        //         sbe::makeE<sbe::EFunction>("exists", sbe::makeEs(convertedIndexRef.clone())),
+        //         convertedIndexRef.clone(),
+        //         sbe::makeE<sbe::EFail>(
+        //             ErrorCodes::Error{5126703},
+        //             "$arrayElemAt second argument cannot be represented as a 32-bit integer"));
+
+        //     return sbe::makeE<sbe::ELocalBind>(frameId, std::move(binds), std::move(inExpression));
+        // }();
+
+        // auto anyOfArgumentsIsNullish =
+        //     sbe::makeE<sbe::EPrimBinary>(sbe::EPrimBinary::logicOr,
+        //                                  generateNullOrMissing(arrayRef),
+        //                                  generateNullOrMissing(indexRef));
+        // auto firstArgumentIsNotArray =
+        //     makeNot(sbe::makeE<sbe::EFunction>("isArray", sbe::makeEs(arrayRef.clone())));
+        // auto secondArgumentIsNotNumeric = generateNonNumericCheck(indexRef);
+        // auto arrayElemAtExpr = buildMultiBranchConditional(
+        //     CaseValuePair{std::move(anyOfArgumentsIsNullish),
+        //                   sbe::makeE<sbe::EConstant>(sbe::value::TypeTags::Null, 0)},
+        //     CaseValuePair{std::move(firstArgumentIsNotArray),
+        //                   sbe::makeE<sbe::EFail>(ErrorCodes::Error{5126701},
+        //                                          "$arrayElemAt first argument must be an array")},
+        //     CaseValuePair{std::move(secondArgumentIsNotNumeric),
+        //                   sbe::makeE<sbe::EFail>(ErrorCodes::Error{5126702},
+        //                                          "$arrayElemAt second argument must be a number")},
+        //     sbe::makeE<sbe::EFunction>("getElement",
+        //                                sbe::makeEs(arrayRef.clone(), std::move(int32Index))));
+
+        // _context->pushExpr(
+        //     sbe::makeE<sbe::ELocalBind>(frameId, std::move(binds), std::move(arrayElemAtExpr)));
     }
     void visit(ExpressionFirst* expr) final {
         buildArrayAccessByConstantIndex(_context, expr->getOpName(), 0);

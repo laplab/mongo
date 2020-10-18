@@ -213,20 +213,18 @@ enum class ExpressionType {
     Placeholder,
 };
 
-struct CompilationResult;
+using ExpressionId = uint64_t;
+struct ExpressionPool;
 
 struct BuildContext {
-    std::vector<std::unique_ptr<sbe::EExpression>>& placeholderValues;
-    const CompilationResult& result;
+    std::vector<std::unique_ptr<sbe::EExpression>>& indexedPlaceholders;
 };
 
 struct Expression {
-    static constexpr long long MAX_CHILDREN = 2;
-
     constexpr Expression()
         : type(ExpressionType::None), data({.index = 0}), children(), childrenCount(0) {}
 
-    constexpr Expression(long long index)
+    constexpr Expression(ExpressionId index)
         : type(ExpressionType::Placeholder),
           data({.index = index}),
           children(),
@@ -235,71 +233,67 @@ struct Expression {
     constexpr Expression(std::string_view name)
         : type(ExpressionType::FunctionCall), data({.name = name}), children(), childrenCount(0) {}
 
-    constexpr void pushChild(long long childIndex) {
+    constexpr void pushChild(ExpressionId childIndex) {
         children[childrenCount++] = childIndex;
     }
 
-    std::unique_ptr<sbe::EExpression> build(BuildContext& context) const;
+    std::unique_ptr<sbe::EExpression> build(const ExpressionPool& exprs, BuildContext& context) const;
 
     ExpressionType type;
     union {
-        long long index;
+        ExpressionId index;
         std::string_view name;
     } data;
 
-    long long children[MAX_CHILDREN];
-    long long childrenCount;
+    static constexpr long long MAX_CHILDREN = 2;
+    ExpressionId children[MAX_CHILDREN];
+    uint64_t childrenCount;
 };
 
-struct CompilationResult {
-    static constexpr long long MAX_SIZE = 100;
-
-    std::unique_ptr<sbe::EExpression> build(std::vector<std::unique_ptr<sbe::EExpression>>& placeholderValues) const {
-        BuildContext context{placeholderValues, *this};
-        return getRoot().build(context);
+struct ExpressionPool {
+    std::unique_ptr<sbe::EExpression> build(std::vector<std::unique_ptr<sbe::EExpression>>& indexedPlaceholders) const {
+        BuildContext context{indexedPlaceholders};
+        return getRoot().build(*this, context);
     }
 
     constexpr const Expression& getRoot() const {
-        return argumentsPool[0];
+        return pool[0];
     }
 
-    constexpr const Expression& get(long long index) const {
-        return argumentsPool[index];
+    constexpr const Expression& get(ExpressionId index) const {
+        return pool[index];
     }
 
-    constexpr Expression& get(long long index) {
-        return argumentsPool[index];
+    constexpr Expression& get(ExpressionId index) {
+        return pool[index];
     }
 
-    constexpr long long allocate() {
+    constexpr ExpressionId allocate() {
         if (current == MAX_SIZE) {
             throw std::logic_error("Not enough space, increase MAX_SIZE constant.");
         }
-        long long index = current;
+        ExpressionId index = current;
         current++;
         return index;
     }
 
-    long long current = 0;
-    Expression argumentsPool[MAX_SIZE];
+    static constexpr long long MAX_SIZE = 100;
+    Expression pool[MAX_SIZE];
+    ExpressionId current = 0;
 };
 
 class Compiler {
 public:
     constexpr Compiler(std::string_view input)
-        : _tokenizer(input)
-        , _current(_tokenizer.next())
-        , _result()
-    {
-    }
+        : _tokenizer(input), _current(_tokenizer.next()), _pool() {}
 
-    constexpr CompilationResult compileToResult() {
-        compile();
-        return _result;
+    constexpr ExpressionPool compile() {
+        compileInternal();
+        return _pool;
     }
 
 private:
-    constexpr long long compile() {
+    constexpr ExpressionId compileInternal() {
         if (match(TokenType::Placeholder)) {
             return consumePlaceholder();
         }
@@ -311,18 +305,18 @@ private:
         throw std::logic_error("Unexpected token");
     }
 
-    constexpr long long consumePlaceholder() {
-        long long exprIndex = _result.allocate();
-        _result.get(exprIndex) = Expression(_current.data.index);
+    constexpr ExpressionId consumePlaceholder() {
+        ExpressionId exprIndex = _pool.allocate();
+        _pool.get(exprIndex) = Expression(_current.data.index);
         consume(TokenType::Placeholder);
         return exprIndex;
     }
 
-    constexpr long long consumeFunctionCall() {
+    constexpr ExpressionId consumeFunctionCall() {
         std::string_view functionName = _current.data.name;
 
-        long long exprIndex = _result.allocate();
-        _result.get(exprIndex) = Expression(functionName);
+        ExpressionId exprIndex = _pool.allocate();
+        _pool.get(exprIndex) = Expression(functionName);
 
         consume(TokenType::Identifier);
         consume(TokenType::LeftParen);
@@ -333,8 +327,8 @@ private:
                 consume(TokenType::Comma);
             }
             isFirst = false;
-            long long childIndex = compile();
-            _result.get(exprIndex).pushChild(childIndex);
+            ExpressionId childIndex = compileInternal();
+            _pool.get(exprIndex).pushChild(childIndex);
         }
 
         consume(TokenType::RightParen);
@@ -358,11 +352,11 @@ private:
 
     Tokenizer _tokenizer;
     Token _current;
-    CompilationResult _result;
+    ExpressionPool _pool;
 };
 
-constexpr CompilationResult operator""_sbe(const char* str, size_t length) {
-    return Compiler(std::string_view(str, length)).compileToResult();
+constexpr ExpressionPool operator""_sbe(const char* str, size_t length) {
+    return Compiler(std::string_view(str, length)).compile();
 }
 
 }
