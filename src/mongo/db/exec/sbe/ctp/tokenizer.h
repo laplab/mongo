@@ -34,7 +34,6 @@
 namespace mongo::sbe::ctp {
 
 enum class TokenType {
-    Placeholder,
     Eof,
     LeftParen,
     RightParen,
@@ -46,6 +45,10 @@ enum class TokenType {
     Boolean,
     And,
     Or,
+    If,
+    Else,
+    LeftCurlyBrace,
+    RightCurlyBrace,
 };
 
 constexpr bool isOperator(TokenType type) {
@@ -57,7 +60,6 @@ struct Token {
 
     union {
         std::string_view name;
-        uint64_t index;
         struct {
             int64_t value;
             bool is64Bit;
@@ -78,54 +80,16 @@ struct Token {
     }
 
     static constexpr Token keyword(TokenType type) {
-        return Token{type, {.index = 0}};
+        return Token{type, {.boolean = false}};
     }
 
     static constexpr Token punctuation(TokenType type) {
-        return Token{type, {.index = 0}};
-    }
-
-    static constexpr Token placeholder(uint64_t index) {
-        return Token{TokenType::Placeholder, {.index = index}};
+        return Token{type, {.boolean = false}};
     }
 
     static constexpr Token eof() {
-        return Token{TokenType::Eof, {.index = 0}};
+        return Token{TokenType::Eof, {.boolean = false}};
     }
-
-    // std::string toString() {
-    //     std::stringstream result;
-    //     result << "Token(";
-
-    //     switch (type) {
-    //         case TokenType::Placeholder:
-    //             result << "Placeholder, {" << data.index << "}";
-    //             break;
-
-    //         case TokenType::Eof:
-    //             result << "EOF";
-    //             break;
-
-    //         case TokenType::LeftParen:
-    //             result << "LeftParen";
-    //             break;
-
-    //         case TokenType::RightParen:
-    //             result << "RightParen";
-    //             break;
-
-    //         case TokenType::Comma:
-    //             result << "Comma";
-    //             break;
-
-    //         case TokenType::Identifier:
-    //             result << "Identifier, '" << data.name << "'";
-    //             break;
-    //     };
-
-    //     result << ")";
-    //     return result.str();
-    // }
 };
 
 namespace {
@@ -159,10 +123,6 @@ public:
 
         char next = peek();
 
-        if (next == '{') {
-            return consumePlaceholder();
-        }
-
         if (isAlpha(next)) {
             return consumeIdentifierOrKeyword();
         }
@@ -181,6 +141,12 @@ public:
                 break;
             case ',':
                 type = TokenType::Comma;
+                break;
+            case '{':
+                type = TokenType::LeftCurlyBrace;
+                break;
+            case '}':
+                type = TokenType::RightCurlyBrace;
                 break;
             case '&': {
                 advance();
@@ -229,26 +195,6 @@ private:
         return Token::integer(value, is64Bit);
     }
 
-    constexpr Token consumePlaceholder() {
-        consume('{');
-
-        uint64_t index = 0;
-        while (true) {
-            char current = peek();
-            if (!isDigit(current)) {
-                break;
-            }
-
-            index = index * 10 + (current - '0');
-
-            advance();
-        }
-
-        consume('}');
-
-        return Token::placeholder(index);
-    }
-
     constexpr Token consumeIdentifierOrKeyword() {
         const char* start = _input.data();
         long long length = 0;
@@ -271,6 +217,10 @@ private:
             return Token::boolean(true);
         } else if (identifier == "false") {
             return Token::boolean(false);
+        } else if (identifier == "if") {
+            return Token::keyword(TokenType::If);
+        } else if(identifier == "else") {
+            return Token::keyword(TokenType::Else);
         }
 
         return Token::identifer(identifier);

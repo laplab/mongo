@@ -45,6 +45,7 @@ enum class ExpressionType {
     Boolean,
     And,
     Or,
+    If,
 };
 
 using ExpressionId = uint64_t;
@@ -94,7 +95,7 @@ struct Expression {
         bool boolean;
     } data;
 
-    static constexpr long long MAX_CHILDREN = 2;
+    static constexpr long long MAX_CHILDREN = 3;
     ExpressionId children[MAX_CHILDREN];
     uint64_t childrenCount;
 };

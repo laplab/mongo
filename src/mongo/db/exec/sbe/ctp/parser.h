@@ -90,7 +90,7 @@ private:
     constexpr ExpressionId parseInternal(BindingPower minBp) {
         ExpressionId leftExprId = 0;
         switch (peek()) {
-            case TokenType::Placeholder:
+            case TokenType::LeftCurlyBrace:
                 leftExprId = consumePlaceholder();
                 break;
             case TokenType::Identifier:
@@ -105,6 +105,9 @@ private:
                 break;
             case TokenType::Boolean:
                 leftExprId = consumeBoolean();
+                break;
+            case TokenType::If:
+                leftExprId = consumeIf();
                 break;
             default:
                 throw std::logic_error("Unexpected token type");
@@ -138,42 +141,67 @@ private:
     }
 
     constexpr ExpressionId consumePlaceholder() {
-        ExpressionId exprIndex = _pool.allocate();
-        _pool.get(exprIndex) = Expression(_current.data.index);
-        consume(TokenType::Placeholder);
-        return exprIndex;
+        consume(TokenType::LeftCurlyBrace);
+        if (_current.data.integer.is64Bit) {
+            throw std::logic_error("Only 32-bit integer literals are supported as placeholder indexes");
+        }
+        ExpressionId exprId = _pool.allocate();
+        _pool.get(exprId) = Expression{static_cast<uint64_t>(_current.data.integer.value)};
+        consume(TokenType::Integer);
+        consume(TokenType::RightCurlyBrace);
+        return exprId;
+    }
+
+    constexpr ExpressionId consumeIf() {
+        consume(TokenType::If);
+        auto conditionExprId = parseInternal(0);
+        consume(TokenType::LeftCurlyBrace);
+        auto thenExprId = parseInternal(0);
+        consume(TokenType::RightCurlyBrace);
+        consume(TokenType::Else);
+        consume(TokenType::LeftCurlyBrace);
+        auto elseExprId = parseInternal(0);
+        consume(TokenType::RightCurlyBrace);
+
+        ExpressionId ifExprId= _pool.allocate();
+        Expression& ifExpr = _pool.get(ifExprId);
+        ifExpr = Expression(ExpressionType::If);
+        ifExpr.pushChild(conditionExprId);
+        ifExpr.pushChild(thenExprId);
+        ifExpr.pushChild(elseExprId);
+        return ifExprId;
     }
 
     constexpr ExpressionId consumeBoolean() {
-        ExpressionId exprIndex = _pool.allocate();
-        _pool.get(exprIndex) = Expression(_current.data.boolean);
+        ExpressionId exprId = _pool.allocate();
+        _pool.get(exprId) = Expression(_current.data.boolean);
         consume(TokenType::Boolean);
-        return exprIndex;
+        return exprId;
     }
 
     constexpr ExpressionId consumeInteger() {
-        ExpressionId exprIndex = _pool.allocate();
+        ExpressionId exprId = _pool.allocate();
         if (_current.data.integer.is64Bit) {
-            _pool.get(exprIndex) = Expression{_current.data.integer.value};
+            _pool.get(exprId) = Expression{_current.data.integer.value};
         } else {
-            _pool.get(exprIndex) = Expression{static_cast<int32_t>(_current.data.integer.value)};
+            _pool.get(exprId) = Expression{static_cast<int32_t>(_current.data.integer.value)};
         }
         consume(TokenType::Integer);
-        return exprIndex;
+        return exprId;
     }
 
     constexpr ExpressionId consumeKeyword() {
-        ExpressionId exprIndex = _pool.allocate();
-        _pool.get(exprIndex) = Expression(getKeywordType(peek()));
+        ExpressionId exprId = _pool.allocate();
+        _pool.get(exprId) = Expression(getKeywordType(peek()));
         advance();
-        return exprIndex;
+        return exprId;
     }
 
     constexpr ExpressionId consumeFunctionCall() {
         std::string_view functionName = _current.data.name;
 
-        ExpressionId exprIndex = _pool.allocate();
-        _pool.get(exprIndex) = Expression(functionName);
+        ExpressionId exprId = _pool.allocate();
+        _pool.get(exprId) = Expression(functionName);
 
         consume(TokenType::Identifier);
         consume(TokenType::LeftParen);
@@ -184,12 +212,12 @@ private:
                 consume(TokenType::Comma);
             }
             isFirst = false;
-            ExpressionId childIndex = parseInternal(0);
-            _pool.get(exprIndex).pushChild(childIndex);
+            ExpressionId childId = parseInternal(0);
+            _pool.get(exprId).pushChild(childId);
         }
 
         consume(TokenType::RightParen);
-        return exprIndex;
+        return exprId;
     }
 
     constexpr void advance() {

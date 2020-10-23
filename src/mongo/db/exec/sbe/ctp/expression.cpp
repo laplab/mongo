@@ -75,6 +75,16 @@ std::unique_ptr<EExpression> Expression::build(const ExpressionPool& exprs, Buil
             return makeE<EPrimBinary>(opType, std::move(left), std::move(right));
         }
 
+        case ExpressionType::If: {
+            invariant(childrenCount == 3);
+
+            auto ifExpr = exprs.get(children[0]).build(exprs, context);
+            auto thenExpr = exprs.get(children[1]).build(exprs, context);
+            auto elseExpr = exprs.get(children[2]).build(exprs, context);
+
+            return makeE<EIf>(std::move(ifExpr), std::move(thenExpr), std::move(elseExpr));
+        }
+
         case ExpressionType::None:
             MONGO_UNREACHABLE;
     }

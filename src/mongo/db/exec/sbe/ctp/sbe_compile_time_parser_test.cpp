@@ -103,4 +103,39 @@ TEST_F(SBECompileTimeParserTest, TestLogicOperators) {
     assertExpr(code8(), "( ( true && false ) && true ) ");
 }
 
+TEST_F(SBECompileTimeParserTest, TestPlaceholders) {
+    constexpr auto code = "getElement({0}, {1})"_sbe;
+    auto expr = code(
+        makeE<EConstant>(value::TypeTags::NumberInt64, value::bitcastFrom<int64_t>(123)),
+        makeE<EConstant>(value::TypeTags::Nothing, value::bitcastFrom<int64_t>(0))
+    );
+
+    assertExpr(std::move(expr), "getElement (123l, Nothing) ");
+}
+
+TEST_F(SBECompileTimeParserTest, TestIf) {
+    constexpr auto code1 = "if true { 123 } else { 456 }"_sbe;
+    assertExpr(code1(), "if (true, 123, 456) ");
+
+    constexpr auto code2 = "if true || false && true { 123 } else { 456 }"_sbe;
+    assertExpr(code2(), "if (( true || ( false && true ) ), 123, 456) ");
+
+    constexpr auto code3 = R"(
+        if true {
+            if false {
+                123
+            } else {
+                456
+            }
+        } else {
+            if Nothing {
+                789
+            } else {
+                987
+            }
+        }
+    )"_sbe;
+    assertExpr(code3(), "if (true, if (false, 123, 456), if (Nothing, 789, 987)) ");
+}
+
 }  // namespace mongo::sbe
