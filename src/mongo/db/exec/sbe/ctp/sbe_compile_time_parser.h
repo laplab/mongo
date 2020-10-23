@@ -46,6 +46,10 @@ enum class TokenType {
     RightParen,
     Comma,
     Identifier,
+    Nothing,
+    Null,
+    Integer,
+    Boolean,
 };
 
 struct Token {
@@ -53,18 +57,35 @@ struct Token {
 
     union {
         std::string_view name;
-        long long index;
+        uint64_t index;
+        struct {
+            int64_t value;
+            bool is64Bit;
+        } integer;
+        bool boolean;
     } data;
+
+    static constexpr Token boolean(bool value) {
+        return Token{TokenType::Boolean, {.boolean = value}};
+    }
+
+    static constexpr Token integer(int64_t value, bool is64Bit) {
+        return Token{TokenType::Integer, {.integer = {value, is64Bit}}};
+    }
 
     static constexpr Token identifer(std::string_view name) {
         return Token{TokenType::Identifier, {.name = name}};
+    }
+
+    static constexpr Token keyword(TokenType type) {
+        return Token{type, {.index = 0}};
     }
 
     static constexpr Token punctuation(TokenType type) {
         return Token{type, {.index = 0}};
     }
 
-    static constexpr Token placeholder(long long index) {
+    static constexpr Token placeholder(uint64_t index) {
         return Token{TokenType::Placeholder, {.index = index}};
     }
 
@@ -72,39 +93,39 @@ struct Token {
         return Token{TokenType::Eof, {.index = 0}};
     }
 
-    std::string toString() {
-        std::stringstream result;
-        result << "Token(";
+    // std::string toString() {
+    //     std::stringstream result;
+    //     result << "Token(";
 
-        switch (type) {
-            case TokenType::Placeholder:
-                result << "Placeholder, {" << data.index << "}";
-                break;
+    //     switch (type) {
+    //         case TokenType::Placeholder:
+    //             result << "Placeholder, {" << data.index << "}";
+    //             break;
 
-            case TokenType::Eof:
-                result << "EOF";
-                break;
+    //         case TokenType::Eof:
+    //             result << "EOF";
+    //             break;
 
-            case TokenType::LeftParen:
-                result << "LeftParen";
-                break;
+    //         case TokenType::LeftParen:
+    //             result << "LeftParen";
+    //             break;
 
-            case TokenType::RightParen:
-                result << "RightParen";
-                break;
+    //         case TokenType::RightParen:
+    //             result << "RightParen";
+    //             break;
 
-            case TokenType::Comma:
-                result << "Comma";
-                break;
+    //         case TokenType::Comma:
+    //             result << "Comma";
+    //             break;
 
-            case TokenType::Identifier:
-                result << "Identifier, '" << data.name << "'";
-                break;
-        };
+    //         case TokenType::Identifier:
+    //             result << "Identifier, '" << data.name << "'";
+    //             break;
+    //     };
 
-        result << ")";
-        return result.str();
-    }
+    //     result << ")";
+    //     return result.str();
+    // }
 };
 
 namespace {
@@ -143,7 +164,11 @@ public:
         }
 
         if (isAlpha(next)) {
-            return consumeIdentifier();
+            return consumeIdentifierOrKeyword();
+        }
+
+        if (isDigit(next)) {
+            return consumeInteger();
         }
 
         TokenType type = TokenType::Eof;
@@ -166,10 +191,32 @@ public:
     }
 
 private:
+    constexpr Token consumeInteger() {
+        int64_t value = 0;
+        while (true) {
+            char current = peek();
+            if (!isDigit(current)) {
+                break;
+            }
+
+            value = value * 10 + (current - '0');
+
+            advance();
+        }
+
+        bool is64Bit = false;
+        if (peek() == 'l') {
+            is64Bit = true;
+            advance();
+        }
+
+        return Token::integer(value, is64Bit);
+    }
+
     constexpr Token consumePlaceholder() {
         consume('{');
 
-        long long index = 0;
+        uint64_t index = 0;
         while (true) {
             char current = peek();
             if (!isDigit(current)) {
@@ -186,7 +233,7 @@ private:
         return Token::placeholder(index);
     }
 
-    constexpr Token consumeIdentifier() {
+    constexpr Token consumeIdentifierOrKeyword() {
         const char* start = _input.data();
         long long length = 0;
         while (true) {
@@ -198,7 +245,19 @@ private:
             length++;
             advance();
         }
-        return Token::identifer(std::string_view(start, length));
+
+        std::string_view identifier(start, length);
+        if (identifier == "Nothing") {
+            return Token::keyword(TokenType::Nothing);
+        } else if (identifier == "Null") {
+            return Token::keyword(TokenType::Null);
+        } else if (identifier == "true") {
+            return Token::boolean(true);
+        } else if (identifier == "false") {
+            return Token::boolean(false);
+        }
+
+        return Token::identifer(identifier);
     }
 
     constexpr void trimWhitespace() {
@@ -239,6 +298,11 @@ enum class ExpressionType {
     None,
     FunctionCall,
     Placeholder,
+    Nothing,
+    Null,
+    Int32,
+    Int64,
+    Boolean,
 };
 
 using ExpressionId = uint64_t;
@@ -250,15 +314,27 @@ struct BuildContext {
 
 struct Expression {
     constexpr Expression()
-        : type(ExpressionType::None), data({.index = 0}), children(), childrenCount(0) {}
+        : Expression(ExpressionType::None) {}
 
-    constexpr Expression(ExpressionId index)
+    explicit constexpr Expression(bool value)
+        : type(ExpressionType::Boolean), data({.boolean = value}), children(), childrenCount(0) {}
+
+    explicit constexpr Expression(int64_t value)
+        : type(ExpressionType::Int64), data({.int64Value = value}), children(), childrenCount(0) {}
+
+    explicit constexpr Expression(int32_t value)
+        : type(ExpressionType::Int32), data({.int32Value = value}), children(), childrenCount(0) {}
+
+    explicit constexpr Expression(ExpressionType type)
+        : type(type), data({.index = 0}), children(), childrenCount(0) {}
+
+    explicit constexpr Expression(uint64_t index)
         : type(ExpressionType::Placeholder),
           data({.index = index}),
           children(),
           childrenCount(0) {}
 
-    constexpr Expression(std::string_view name)
+    explicit constexpr Expression(std::string_view name)
         : type(ExpressionType::FunctionCall), data({.name = name}), children(), childrenCount(0) {}
 
     constexpr void pushChild(ExpressionId childIndex) {
@@ -269,8 +345,11 @@ struct Expression {
 
     ExpressionType type;
     union {
-        ExpressionId index;
+        uint64_t index;
         std::string_view name;
+        int32_t int32Value;
+        int64_t int64Value;
+        bool boolean;
     } data;
 
     static constexpr long long MAX_CHILDREN = 2;
@@ -280,7 +359,7 @@ struct Expression {
 
 struct ExpressionPool {
     template <typename... Args>
-    auto build(Args&&... args) const {
+    auto operator()(Args&&... args) const {
         std::vector<std::unique_ptr<sbe::EExpression>> indexedPlaceholders;
         indexedPlaceholders.reserve(sizeof...(Args));
         (indexedPlaceholders.push_back(std::forward<Args>(args)), ...);
@@ -322,26 +401,70 @@ public:
 
     constexpr ExpressionPool compile() {
         compileInternal();
+        consume(TokenType::Eof);
         return _pool;
     }
 
 private:
     constexpr ExpressionId compileInternal() {
-        if (match(TokenType::Placeholder)) {
-            return consumePlaceholder();
+        switch (peek()) {
+            case TokenType::Placeholder:
+                return consumePlaceholder();
+            case TokenType::Identifier:
+                return consumeFunctionCall();
+            case TokenType::Nothing:
+            case TokenType::Null:
+                return consumeKeyword();
+            case TokenType::Integer:
+                return consumeInteger();
+            case TokenType::Boolean:
+                return consumeBoolean();
+            default:
+                throw std::logic_error("Unexpected token type");
         }
-
-        if (match(TokenType::Identifier)) {
-            return consumeFunctionCall();
-        }
-
-        throw std::logic_error("Unexpected token");
     }
 
     constexpr ExpressionId consumePlaceholder() {
         ExpressionId exprIndex = _pool.allocate();
         _pool.get(exprIndex) = Expression(_current.data.index);
         consume(TokenType::Placeholder);
+        return exprIndex;
+    }
+
+    constexpr ExpressionId consumeBoolean() {
+        ExpressionId exprIndex = _pool.allocate();
+        _pool.get(exprIndex) = Expression(_current.data.boolean);
+        consume(TokenType::Boolean);
+        return exprIndex;
+    }
+
+    constexpr ExpressionId consumeInteger() {
+        ExpressionId exprIndex = _pool.allocate();
+        if (_current.data.integer.is64Bit) {
+            _pool.get(exprIndex) = Expression{_current.data.integer.value};
+        } else {
+            _pool.get(exprIndex) = Expression{static_cast<int32_t>(_current.data.integer.value)};
+        }
+        consume(TokenType::Integer);
+        return exprIndex;
+    }
+
+    constexpr ExpressionId consumeKeyword() {
+        ExpressionType type = ExpressionType::None;
+        switch (peek()) {
+            case TokenType::Nothing:
+                type = ExpressionType::Nothing;
+                break;
+            case TokenType::Null:
+                type = ExpressionType::Null;
+                break;
+            default:
+                throw std::logic_error("Expected keyword token type");
+        }
+
+        ExpressionId exprIndex = _pool.allocate();
+        _pool.get(exprIndex) = Expression(type);
+        advance();
         return exprIndex;
     }
 
@@ -374,6 +497,10 @@ private:
 
     constexpr bool match(TokenType type) {
         return _current.type == type;
+    }
+
+    constexpr TokenType peek() {
+        return _current.type;
     }
 
     constexpr void consume(TokenType type) {

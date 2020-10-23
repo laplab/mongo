@@ -174,7 +174,7 @@ void writeValueToStream(T& stream, TypeTags tag, Value val) {
             stream << bitcastTo<int32_t>(val);
             break;
         case value::TypeTags::NumberInt64:
-            stream << bitcastTo<int64_t>(val);
+            stream << bitcastTo<int64_t>(val) << 'l';
             break;
         case value::TypeTags::NumberDouble:
             stream << bitcastTo<double>(val);

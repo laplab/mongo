@@ -31,21 +31,36 @@
 
 namespace mongo::sbe::ctp {
 
-std::unique_ptr<sbe::EExpression> Expression::build(const ExpressionPool& exprs, BuildContext& context) const {
+std::unique_ptr<EExpression> Expression::build(const ExpressionPool& exprs, BuildContext& context) const {
     switch (type) {
         case ExpressionType::Placeholder:
             return std::move(context.indexedPlaceholders[data.index]);
 
         case ExpressionType::FunctionCall: {
-            auto compiledChildren = sbe::makeEs();
+            auto compiledChildren = makeEs();
             compiledChildren.reserve(childrenCount);
 
             for (uint64_t i = 0; i < childrenCount; i++) {
                 auto compiledChild = exprs.get(children[i]).build(exprs, context);
                 compiledChildren.emplace_back(std::move(compiledChild));
             }
-            return sbe::makeE<sbe::EFunction>(data.name, std::move(compiledChildren));
+            return makeE<EFunction>(data.name, std::move(compiledChildren));
         }
+
+        case ExpressionType::Nothing:
+            return makeE<EConstant>(value::TypeTags::Nothing, value::bitcastFrom<int64_t>(0));
+
+        case ExpressionType::Null:
+            return makeE<EConstant>(value::TypeTags::Null, value::bitcastFrom<int64_t>(0));
+
+        case ExpressionType::Int32:
+            return makeE<EConstant>(value::TypeTags::NumberInt32, value::bitcastFrom<int32_t>(data.int32Value));
+
+        case ExpressionType::Int64:
+            return makeE<EConstant>(value::TypeTags::NumberInt64, value::bitcastFrom<int64_t>(data.int64Value));
+
+        case ExpressionType::Boolean:
+            return makeE<EConstant>(value::TypeTags::Boolean, value::bitcastFrom<bool>(data.boolean));
 
         case ExpressionType::None:
             MONGO_UNREACHABLE;

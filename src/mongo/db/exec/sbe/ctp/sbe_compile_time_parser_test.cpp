@@ -42,7 +42,7 @@ class SBECompileTimeParserTest : public EExpressionTestFixture {
 protected:
     SBECompileTimeParserTest() = default;
 
-    void assertExpr(std::unique_ptr<EExpression>& expr, const std::string& expectedOutput) {
+    void assertExpr(std::unique_ptr<EExpression> expr, const std::string& expectedOutput) {
         const auto actualOutput = printer.print(expr.get());
         ASSERT_EQ(actualOutput, expectedOutput);
     }
@@ -50,11 +50,31 @@ protected:
     DebugPrinter printer;
 };
 
-TEST_F(SBECompileTimeParserTest, TestFunction) {
-    constexpr auto code = "getElement({0}, {1})"_sbe;
-    auto expr = code.build(makeE<EConstant>(value::TypeTags::Nothing, 0), makeE<EConstant>(value::TypeTags::Nothing, 0));
+TEST_F(SBECompileTimeParserTest, TestBasic) {
+    constexpr auto code1 = "Nothing"_sbe;
+    assertExpr(code1(), "Nothing ");
 
-    assertExpr(expr, "getElement (Nothing, Nothing) ");
+    constexpr auto code2 = "Null"_sbe;
+    assertExpr(code2(), "null ");
+
+    constexpr auto code3 = "123"_sbe;
+    assertExpr(code3(), "123 ");
+
+    constexpr auto code4 = "123l"_sbe;
+    assertExpr(code4(), "123l ");
+
+    constexpr auto code5 = "true"_sbe;
+    assertExpr(code5(), "true ");
+
+    constexpr auto code6 = "false"_sbe;
+    assertExpr(code6(), "false ");
+}
+
+TEST_F(SBECompileTimeParserTest, TestFunction) {
+    constexpr auto code = "getElement(Nothing, Nothing)"_sbe;
+    auto expr = code();
+
+    assertExpr(std::move(expr), "getElement (Nothing, Nothing) ");
 }
 
 }  // namespace mongo::sbe
