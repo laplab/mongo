@@ -43,6 +43,8 @@ enum class ExpressionType {
     Int32,
     Int64,
     Boolean,
+    And,
+    Or,
 };
 
 using ExpressionId = uint64_t;
@@ -109,7 +111,7 @@ struct ExpressionPool {
     }
 
     constexpr const Expression& getRoot() const {
-        return pool[0];
+        return pool[rootId];
     }
 
     constexpr const Expression& get(ExpressionId index) const {
@@ -129,6 +131,7 @@ struct ExpressionPool {
         return index;
     }
 
+    ExpressionId rootId = 0;
     static constexpr long long MAX_SIZE = 100;
     Expression pool[MAX_SIZE];
     ExpressionId current = 0;

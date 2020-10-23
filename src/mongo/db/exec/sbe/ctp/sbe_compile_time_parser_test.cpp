@@ -77,4 +77,30 @@ TEST_F(SBECompileTimeParserTest, TestFunction) {
     assertExpr(std::move(expr), "getElement (Nothing, Nothing) ");
 }
 
+TEST_F(SBECompileTimeParserTest, TestLogicOperators) {
+    constexpr auto code1 = "true || false"_sbe;
+    assertExpr(code1(), "( true || false ) ");
+
+    constexpr auto code2 = "false || true"_sbe;
+    assertExpr(code2(), "( false || true ) ");
+
+    constexpr auto code3 = "true && false"_sbe;
+    assertExpr(code3(), "( true && false ) ");
+
+    constexpr auto code4 = "false && true"_sbe;
+    assertExpr(code4(), "( false && true ) ");
+
+    constexpr auto code5 = "false && true || false"_sbe;
+    assertExpr(code5(), "( ( false && true ) || false ) ");
+
+    constexpr auto code6 = "true || false && true"_sbe;
+    assertExpr(code6(), "( true || ( false && true ) ) ");
+
+    constexpr auto code7 = "true || false || true"_sbe;
+    assertExpr(code7(), "( ( true || false ) || true ) ");
+
+    constexpr auto code8 = "true && false && true"_sbe;
+    assertExpr(code8(), "( ( true && false ) && true ) ");
+}
+
 }  // namespace mongo::sbe

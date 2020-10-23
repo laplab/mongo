@@ -224,6 +224,8 @@ std::unique_ptr<vm::CodeFragment> EPrimBinary::compile(CompileCtx& ctx) const {
 std::vector<DebugPrinter::Block> EPrimBinary::debugPrint() const {
     std::vector<DebugPrinter::Block> ret;
 
+    ret.emplace_back("(");
+
     DebugPrinter::addBlocks(ret, _nodes[0]->debugPrint());
 
     switch (_op) {
@@ -271,6 +273,8 @@ std::vector<DebugPrinter::Block> EPrimBinary::debugPrint() const {
             break;
     }
     DebugPrinter::addBlocks(ret, _nodes[1]->debugPrint());
+
+    ret.emplace_back(")");
 
     return ret;
 }

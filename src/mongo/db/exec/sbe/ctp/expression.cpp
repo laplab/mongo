@@ -29,6 +29,8 @@
 
 #include "mongo/db/exec/sbe/ctp/expression.h"
 
+#include "mongo/util/assert_util.h"
+
 namespace mongo::sbe::ctp {
 
 std::unique_ptr<EExpression> Expression::build(const ExpressionPool& exprs, BuildContext& context) const {
@@ -61,6 +63,17 @@ std::unique_ptr<EExpression> Expression::build(const ExpressionPool& exprs, Buil
 
         case ExpressionType::Boolean:
             return makeE<EConstant>(value::TypeTags::Boolean, value::bitcastFrom<bool>(data.boolean));
+
+        case ExpressionType::Or:
+        case ExpressionType::And: {
+            invariant(childrenCount == 2);
+
+            auto left = exprs.get(children[0]).build(exprs, context);
+            auto right = exprs.get(children[1]).build(exprs, context);
+
+            auto opType = type == ExpressionType::Or ? EPrimBinary::logicOr : EPrimBinary::logicAnd;
+            return makeE<EPrimBinary>(opType, std::move(left), std::move(right));
+        }
 
         case ExpressionType::None:
             MONGO_UNREACHABLE;

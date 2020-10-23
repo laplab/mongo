@@ -34,11 +34,46 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <cstdint>
 
 #include "mongo/db/exec/sbe/ctp/tokenizer.h"
 #include "mongo/db/exec/sbe/ctp/expression.h"
 
 namespace mongo::sbe::ctp {
+
+constexpr ExpressionType getOperatorType(TokenType type) {
+    switch (type) {
+        case TokenType::And:
+            return ExpressionType::And;
+        case TokenType::Or:
+            return ExpressionType::Or;
+        default:
+            throw std::logic_error("Expected keyword token type");
+    }
+}
+
+constexpr ExpressionType getKeywordType(TokenType type) {
+    switch (type) {
+        case TokenType::Nothing:
+            return ExpressionType::Nothing;
+        case TokenType::Null:
+            return ExpressionType::Null;
+        default:
+            throw std::logic_error("Expected keyword token type");
+    }
+}
+
+using BindingPower = uint8_t;
+constexpr std::pair<BindingPower, BindingPower> getBindingPower(TokenType type) {
+    switch (type) {
+        case TokenType::Or:
+            return {1, 2};
+        case TokenType::And:
+            return {3, 4};
+        default:
+            throw std::logic_error("Expected operator token type");
+    }
+}
 
 class Parser {
 public:
@@ -46,28 +81,60 @@ public:
         : _tokenizer(input), _current(_tokenizer.next()), _pool() {}
 
     constexpr ExpressionPool parse() {
-        parseInternal();
+        _pool.rootId = parseInternal(0);
         consume(TokenType::Eof);
         return _pool;
     }
 
 private:
-    constexpr ExpressionId parseInternal() {
+    constexpr ExpressionId parseInternal(BindingPower minBp) {
+        ExpressionId leftExprId = 0;
         switch (peek()) {
             case TokenType::Placeholder:
-                return consumePlaceholder();
+                leftExprId = consumePlaceholder();
+                break;
             case TokenType::Identifier:
-                return consumeFunctionCall();
+                leftExprId = consumeFunctionCall();
+                break;
             case TokenType::Nothing:
             case TokenType::Null:
-                return consumeKeyword();
+                leftExprId = consumeKeyword();
+                break;
             case TokenType::Integer:
-                return consumeInteger();
+                leftExprId = consumeInteger();
+                break;
             case TokenType::Boolean:
-                return consumeBoolean();
+                leftExprId = consumeBoolean();
+                break;
             default:
                 throw std::logic_error("Unexpected token type");
         }
+
+        while (true) {
+            const auto type = peek();
+            if (!isOperator(type)) {
+                break;
+            }
+
+            auto [leftBp, rightBp] = getBindingPower(type);
+            if (leftBp < minBp) {
+                break;
+            }
+
+            advance();
+
+            auto rightExprId = parseInternal(rightBp);
+
+            auto opExprId = _pool.allocate();
+            Expression& opExpr = _pool.get(opExprId);
+            opExpr = Expression(getOperatorType(type));
+            opExpr.pushChild(leftExprId);
+            opExpr.pushChild(rightExprId);
+
+            leftExprId = opExprId;
+        }
+
+        return leftExprId;
     }
 
     constexpr ExpressionId consumePlaceholder() {
@@ -96,20 +163,8 @@ private:
     }
 
     constexpr ExpressionId consumeKeyword() {
-        ExpressionType type = ExpressionType::None;
-        switch (peek()) {
-            case TokenType::Nothing:
-                type = ExpressionType::Nothing;
-                break;
-            case TokenType::Null:
-                type = ExpressionType::Null;
-                break;
-            default:
-                throw std::logic_error("Expected keyword token type");
-        }
-
         ExpressionId exprIndex = _pool.allocate();
-        _pool.get(exprIndex) = Expression(type);
+        _pool.get(exprIndex) = Expression(getKeywordType(peek()));
         advance();
         return exprIndex;
     }
@@ -129,7 +184,7 @@ private:
                 consume(TokenType::Comma);
             }
             isFirst = false;
-            ExpressionId childIndex = parseInternal();
+            ExpressionId childIndex = parseInternal(0);
             _pool.get(exprIndex).pushChild(childIndex);
         }
 

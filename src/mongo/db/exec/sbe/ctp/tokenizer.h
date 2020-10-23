@@ -44,7 +44,13 @@ enum class TokenType {
     Null,
     Integer,
     Boolean,
+    And,
+    Or,
 };
+
+constexpr bool isOperator(TokenType type) {
+    return type == TokenType::Or || type == TokenType::And;
+}
 
 struct Token {
     TokenType type;
@@ -176,6 +182,22 @@ public:
             case ',':
                 type = TokenType::Comma;
                 break;
+            case '&': {
+                advance();
+                if (peek() != '&') {
+                    throw std::logic_error("Incomplete AND operator");
+                }
+                type = TokenType::And;
+                break;
+            }
+            case '|': {
+                advance();
+                if (peek() != '|') {
+                    throw std::logic_error("Incomplete OR operator");
+                }
+                type = TokenType::Or;
+                break;
+            }
             default:
                 throw std::logic_error("Unexpected character");
         }
