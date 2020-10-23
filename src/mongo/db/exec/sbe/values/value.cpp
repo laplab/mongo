@@ -254,7 +254,7 @@ void writeValueToStream(T& stream, TypeTags tag, Value val) {
             break;
         }
         case value::TypeTags::Nothing:
-            stream << "---===*** NOTHING ***===---";
+            stream << "Nothing";
             break;
         case value::TypeTags::bsonArray: {
             const char* be = getRawPointerView(val);

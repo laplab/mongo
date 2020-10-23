@@ -1203,7 +1203,6 @@ env.Library(
         'query/sbe_runtime_planner.cpp',
         'query/sbe_stage_builder.cpp',
         'query/sbe_stage_builder_coll_scan.cpp',
-        'query/sbe_compile_time_parser.cpp',
         'query/sbe_stage_builder_expression.cpp',
         'query/sbe_stage_builder_filter.cpp',
         'query/sbe_stage_builder_index_scan.cpp',

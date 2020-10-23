@@ -39,6 +39,7 @@
 namespace mongo {
 namespace sbe {
 class PlanStage;
+class EExpression;
 
 class DebugPrinter {
 public:
@@ -117,6 +118,8 @@ public:
                    std::make_move_iterator(blocks.end()));
     }
     std::string print(PlanStage* s);
+
+    std::string print(EExpression* e);
 
 private:
     bool _colorConsole;
