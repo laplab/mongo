@@ -48,7 +48,6 @@
 #include "mongo/db/pipeline/expression_walker.h"
 #include "mongo/db/query/projection_parser.h"
 #include "mongo/db/query/sbe_stage_builder_helpers.h"
-#include "mongo/db/exec/sbe/ctp/sbe_compile_time_parser.h"
 #include "mongo/util/str.h"
 
 #include <iostream>

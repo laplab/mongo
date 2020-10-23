@@ -31,8 +31,8 @@
 
 #include "mongo/db/exec/sbe/util/debug_print.h"
 
-#include "mongo/db/exec/sbe/stages/stages.h"
 #include "mongo/db/exec/sbe/expressions/expression.h"
+#include "mongo/db/exec/sbe/stages/stages.h"
 
 namespace mongo {
 namespace sbe {

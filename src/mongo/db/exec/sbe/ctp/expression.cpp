@@ -27,7 +27,7 @@
  *    it in the license file.
  */
 
-#include "sbe_compile_time_parser.h"
+#include "mongo/db/exec/sbe/ctp/expression.h"
 
 namespace mongo::sbe::ctp {
 
