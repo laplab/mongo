@@ -85,6 +85,53 @@ std::unique_ptr<EExpression> Expression::build(const ExpressionPool& exprs, Buil
             return makeE<EIf>(std::move(ifExpr), std::move(thenExpr), std::move(elseExpr));
         }
 
+        case ExpressionType::VariableAssignment: {
+            auto& frame = context.variablesStack.top();
+            auto variableIndex = frame.variableNames.size();
+
+            frame.variableNames.push_back(data.name);
+            auto variableValue = exprs.get(children[0]).build(exprs, context);
+            context.variableMap[data.name] = std::make_pair(
+                makeE<EVariable>(frame.frameId, variableIndex),
+                std::move(variableValue)
+            );
+
+            if (childrenCount > 1) {
+                exprs.get(children[1]).build(exprs, context);
+            }
+            return nullptr;
+        }
+
+        case ExpressionType::Variable: {
+            auto it = context.variableMap.find(data.name);
+            invariant(it != context.variableMap.end());
+            return it->second.first->clone();
+        }
+
+        case ExpressionType::Let: {
+            auto frameId = context.frameIdGenerator.generate();
+            context.variablesStack.push({frameId, {}});
+
+            // Fill frame and map with data, but ignore the result.
+            exprs.get(children[0]).build(exprs, context);
+
+            // Build in expression while all variables are in context.
+            auto inBodyExpr = exprs.get(children[1]).build(exprs, context);
+
+            auto& topFrame = context.variablesStack.top();
+            auto binds = makeEs();
+            for (const auto& name : topFrame.variableNames) {
+                auto it = context.variableMap.find(name);
+                invariant(it != context.variableMap.end());
+                binds.emplace_back(std::move(it->second.second));
+                context.variableMap.erase(it);
+            }
+
+            context.variablesStack.pop();
+
+            return makeE<ELocalBind>(frameId, std::move(binds), std::move(inBodyExpr));
+        }
+
         case ExpressionType::None:
             MONGO_UNREACHABLE;
     }

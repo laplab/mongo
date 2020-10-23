@@ -94,7 +94,7 @@ private:
                 leftExprId = consumePlaceholder();
                 break;
             case TokenType::Identifier:
-                leftExprId = consumeFunctionCall();
+                leftExprId = consumeVariableOrFunctionCall();
                 break;
             case TokenType::Nothing:
             case TokenType::Null:
@@ -108,6 +108,9 @@ private:
                 break;
             case TokenType::If:
                 leftExprId = consumeIf();
+                break;
+            case TokenType::Let:
+                leftExprId = consumeLet();
                 break;
             default:
                 throw std::logic_error("Unexpected token type");
@@ -150,6 +153,52 @@ private:
         consume(TokenType::Integer);
         consume(TokenType::RightCurlyBrace);
         return exprId;
+    }
+
+    constexpr ExpressionId consumeLet() {
+        consume(TokenType::Let);
+
+        ExpressionId variableTreeId = 0;
+        bool isFirst = true;
+        while (true) {
+            if (match(TokenType::Comma)) {
+                consume(TokenType::Comma);
+            } else if (!isFirst) {
+                break;
+            }
+
+            auto variableName = _current.data.name;
+            consume(TokenType::Identifier);
+            consume(TokenType::Equals);
+
+            auto variableValue = parseInternal(0);
+
+            auto variableExprId = _pool.allocate();
+            Expression& variable = _pool.get(variableExprId);
+            variable = Expression(ExpressionType::VariableAssignment, variableName);
+            variable.pushChild(variableValue);
+
+            if (!isFirst) {
+                variable.pushChild(variableTreeId);
+            }
+            variableTreeId = variableExprId;
+
+            isFirst = false;
+        }
+
+        consume(TokenType::In);
+        consume(TokenType::LeftCurlyBrace);
+        auto inExprId = parseInternal(0);
+
+        auto letExprId = _pool.allocate();
+        Expression& letExpr = _pool.get(letExprId);
+        letExpr = Expression(ExpressionType::Let);
+        letExpr.pushChild(variableTreeId);
+        letExpr.pushChild(inExprId);
+
+        consume(TokenType::RightCurlyBrace);
+
+        return letExprId;
     }
 
     constexpr ExpressionId consumeIf() {
@@ -197,13 +246,18 @@ private:
         return exprId;
     }
 
-    constexpr ExpressionId consumeFunctionCall() {
-        std::string_view functionName = _current.data.name;
+    constexpr ExpressionId consumeVariableOrFunctionCall() {
+        auto name = _current.data.name;
+        consume(TokenType::Identifier);
 
         ExpressionId exprId = _pool.allocate();
-        _pool.get(exprId) = Expression(functionName);
+        Expression& expr = _pool.get(exprId);
+        if (!match(TokenType::LeftParen)) {
+            expr = Expression(ExpressionType::Variable, name);
+            return exprId;
+        }
 
-        consume(TokenType::Identifier);
+        expr = Expression(ExpressionType::FunctionCall, name);
         consume(TokenType::LeftParen);
 
         bool isFirst = true;

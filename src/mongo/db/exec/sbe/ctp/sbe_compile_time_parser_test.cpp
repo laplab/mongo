@@ -52,60 +52,61 @@ protected:
 
 TEST_F(SBECompileTimeParserTest, TestBasic) {
     constexpr auto code1 = "Nothing"_sbe;
-    assertExpr(code1(), "Nothing ");
+    assertExpr(code1(_frameIdGenerator), "Nothing ");
 
     constexpr auto code2 = "Null"_sbe;
-    assertExpr(code2(), "null ");
+    assertExpr(code2(_frameIdGenerator), "null ");
 
     constexpr auto code3 = "123"_sbe;
-    assertExpr(code3(), "123 ");
+    assertExpr(code3(_frameIdGenerator), "123 ");
 
     constexpr auto code4 = "123l"_sbe;
-    assertExpr(code4(), "123l ");
+    assertExpr(code4(_frameIdGenerator), "123l ");
 
     constexpr auto code5 = "true"_sbe;
-    assertExpr(code5(), "true ");
+    assertExpr(code5(_frameIdGenerator), "true ");
 
     constexpr auto code6 = "false"_sbe;
-    assertExpr(code6(), "false ");
+    assertExpr(code6(_frameIdGenerator), "false ");
 }
 
 TEST_F(SBECompileTimeParserTest, TestFunction) {
     constexpr auto code = "getElement(Nothing, Nothing)"_sbe;
-    auto expr = code();
+    auto expr = code(_frameIdGenerator);
 
     assertExpr(std::move(expr), "getElement (Nothing, Nothing) ");
 }
 
 TEST_F(SBECompileTimeParserTest, TestLogicOperators) {
     constexpr auto code1 = "true || false"_sbe;
-    assertExpr(code1(), "( true || false ) ");
+    assertExpr(code1(_frameIdGenerator), "( true || false ) ");
 
     constexpr auto code2 = "false || true"_sbe;
-    assertExpr(code2(), "( false || true ) ");
+    assertExpr(code2(_frameIdGenerator), "( false || true ) ");
 
     constexpr auto code3 = "true && false"_sbe;
-    assertExpr(code3(), "( true && false ) ");
+    assertExpr(code3(_frameIdGenerator), "( true && false ) ");
 
     constexpr auto code4 = "false && true"_sbe;
-    assertExpr(code4(), "( false && true ) ");
+    assertExpr(code4(_frameIdGenerator), "( false && true ) ");
 
     constexpr auto code5 = "false && true || false"_sbe;
-    assertExpr(code5(), "( ( false && true ) || false ) ");
+    assertExpr(code5(_frameIdGenerator), "( ( false && true ) || false ) ");
 
     constexpr auto code6 = "true || false && true"_sbe;
-    assertExpr(code6(), "( true || ( false && true ) ) ");
+    assertExpr(code6(_frameIdGenerator), "( true || ( false && true ) ) ");
 
     constexpr auto code7 = "true || false || true"_sbe;
-    assertExpr(code7(), "( ( true || false ) || true ) ");
+    assertExpr(code7(_frameIdGenerator), "( ( true || false ) || true ) ");
 
     constexpr auto code8 = "true && false && true"_sbe;
-    assertExpr(code8(), "( ( true && false ) && true ) ");
+    assertExpr(code8(_frameIdGenerator), "( ( true && false ) && true ) ");
 }
 
 TEST_F(SBECompileTimeParserTest, TestPlaceholders) {
     constexpr auto code = "getElement({0}, {1})"_sbe;
     auto expr = code(
+        _frameIdGenerator,
         makeE<EConstant>(value::TypeTags::NumberInt64, value::bitcastFrom<int64_t>(123)),
         makeE<EConstant>(value::TypeTags::Nothing, value::bitcastFrom<int64_t>(0))
     );
@@ -115,10 +116,10 @@ TEST_F(SBECompileTimeParserTest, TestPlaceholders) {
 
 TEST_F(SBECompileTimeParserTest, TestIf) {
     constexpr auto code1 = "if true { 123 } else { 456 }"_sbe;
-    assertExpr(code1(), "if (true, 123, 456) ");
+    assertExpr(code1(_frameIdGenerator), "if (true, 123, 456) ");
 
     constexpr auto code2 = "if true || false && true { 123 } else { 456 }"_sbe;
-    assertExpr(code2(), "if (( true || ( false && true ) ), 123, 456) ");
+    assertExpr(code2(_frameIdGenerator), "if (( true || ( false && true ) ), 123, 456) ");
 
     constexpr auto code3 = R"(
         if true {
@@ -135,7 +136,29 @@ TEST_F(SBECompileTimeParserTest, TestIf) {
             }
         }
     )"_sbe;
-    assertExpr(code3(), "if (true, if (false, 123, 456), if (Nothing, 789, 987)) ");
+    assertExpr(code3(_frameIdGenerator), "if (true, if (false, 123, 456), if (Nothing, 789, 987)) ");
+}
+
+TEST_F(SBECompileTimeParserTest, TestLet) {
+    constexpr auto code1 = R"(
+        let x = true, y = false in {
+            x || y
+        }
+    )"_sbe;
+    assertExpr(code1(_frameIdGenerator), "let [l1.0 = false, l1.1 = true] ( l1.1 || l1.0 ) ");
+
+    constexpr auto code2 = R"(
+        let a = true, b = false in {
+            let c = 1, d = Nothing in {
+                if a {
+                    d && b
+                } else {
+                    c || d
+                }
+            }
+        }
+    )"_sbe;
+    assertExpr(code2(_frameIdGenerator), "let [l2.0 = false, l2.1 = true] let [l3.0 = Nothing, l3.1 = 1] if (l2.1, ( l3.0 && l2.0 ), ( l3.1 || l3.0 )) ");
 }
 
 }  // namespace mongo::sbe

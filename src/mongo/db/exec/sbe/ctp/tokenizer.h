@@ -49,6 +49,9 @@ enum class TokenType {
     Else,
     LeftCurlyBrace,
     RightCurlyBrace,
+    Let,
+    In,
+    Equals,
 };
 
 constexpr bool isOperator(TokenType type) {
@@ -148,6 +151,9 @@ public:
             case '}':
                 type = TokenType::RightCurlyBrace;
                 break;
+            case '=':
+                type = TokenType::Equals;
+                break;
             case '&': {
                 advance();
                 if (peek() != '&') {
@@ -219,8 +225,12 @@ private:
             return Token::boolean(false);
         } else if (identifier == "if") {
             return Token::keyword(TokenType::If);
-        } else if(identifier == "else") {
+        } else if (identifier == "else") {
             return Token::keyword(TokenType::Else);
+        } else if (identifier == "let") {
+            return Token::keyword(TokenType::Let);
+        } else if (identifier == "in") {
+            return Token::keyword(TokenType::In);
         }
 
         return Token::identifer(identifier);

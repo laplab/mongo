@@ -159,7 +159,8 @@ protected:
         return {value::TypeTags::NumberDouble, value::bitcastFrom<double>(value)};
     }
 
-private:
+protected:
+    value::FrameIdGenerator _frameIdGenerator;
     value::SlotIdGenerator _slotIdGenerator;
     CoScanStage _emptyStage{kEmptyPlanNodeId};
     CompileCtx _ctx;

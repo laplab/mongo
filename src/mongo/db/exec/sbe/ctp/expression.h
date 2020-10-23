@@ -29,6 +29,8 @@
 #pragma once
 
 #include <cstdint>
+#include <stack>
+#include <unordered_map>
 
 #include "mongo/db/exec/sbe/expressions/expression.h"
 
@@ -46,12 +48,26 @@ enum class ExpressionType {
     And,
     Or,
     If,
+    VariableAssignment,
+    Let,
+    Variable,
 };
 
 using ExpressionId = uint64_t;
 struct ExpressionPool;
 
+struct VariablesFrame {
+    FrameId frameId;
+    std::vector<std::string_view> variableNames;
+};
+
 struct BuildContext {
+    BuildContext(value::FrameIdGenerator& frameIdGenerator, std::vector<std::unique_ptr<sbe::EExpression>>& indexedPlaceholders)
+        : frameIdGenerator(frameIdGenerator), indexedPlaceholders(indexedPlaceholders) {}
+
+    value::FrameIdGenerator& frameIdGenerator;
+    std::stack<VariablesFrame> variablesStack;
+    std::unordered_map<std::string_view, std::pair<std::unique_ptr<EExpression>, std::unique_ptr<EExpression>>> variableMap;
     std::vector<std::unique_ptr<sbe::EExpression>>& indexedPlaceholders;
 };
 
@@ -77,8 +93,8 @@ struct Expression {
           children(),
           childrenCount(0) {}
 
-    explicit constexpr Expression(std::string_view name)
-        : type(ExpressionType::FunctionCall), data({.name = name}), children(), childrenCount(0) {}
+    explicit constexpr Expression(ExpressionType type, std::string_view name)
+        : type(type), data({.name = name}), children(), childrenCount(0) {}
 
     constexpr void pushChild(ExpressionId childIndex) {
         children[childrenCount++] = childIndex;
@@ -102,12 +118,12 @@ struct Expression {
 
 struct ExpressionPool {
     template <typename... Args>
-    auto operator()(Args&&... args) const {
+    auto operator()(value::FrameIdGenerator& frameIdGenerator, Args&&... args) const {
         std::vector<std::unique_ptr<sbe::EExpression>> indexedPlaceholders;
         indexedPlaceholders.reserve(sizeof...(Args));
         (indexedPlaceholders.push_back(std::forward<Args>(args)), ...);
 
-        BuildContext context{indexedPlaceholders};
+        BuildContext context{frameIdGenerator, indexedPlaceholders};
         return getRoot().build(*this, context);
     }
 
