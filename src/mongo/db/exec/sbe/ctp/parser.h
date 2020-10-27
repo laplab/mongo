@@ -357,6 +357,8 @@ private:
 
         if (name == "fail") {
             consumeFailArguments(expr);
+        } else if (name == "toInt32") {
+            consumeToInt32Arguments(expr);
         } else {
             bool isFirst = true;
             while (!match(TokenType::RightParen)) {
@@ -385,6 +387,11 @@ private:
             throw std::logic_error("Second argument of fail() must me error message string");
         }
         expr.pushChild(consumeString());
+    }
+
+    constexpr void consumeToInt32Arguments(Expression& expr) {
+        ExpressionId childId = parseInternal(0);
+        expr.pushChild(childId);
     }
 
     constexpr void advance() {

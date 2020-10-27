@@ -39,6 +39,13 @@ std::unique_ptr<EExpression> Expression::build(const ExpressionPool& exprs, Buil
             return std::move(context.indexedPlaceholders[placeholderIndex]);
 
         case ExpressionType::FunctionCall: {
+            if (stringValue == "fail") {
+                invariant(childrenCount == 2);
+                auto code = static_cast<ErrorCodes::Error>(exprs.get(children[0]).int32Value);
+                std::string message{exprs.get(children[1]).stringValue};
+                return makeE<EFail>(code, message);
+            }
+
             auto compiledChildren = makeEs();
             compiledChildren.reserve(childrenCount);
 
@@ -47,11 +54,9 @@ std::unique_ptr<EExpression> Expression::build(const ExpressionPool& exprs, Buil
                 compiledChildren.emplace_back(std::move(compiledChild));
             }
 
-            if (stringValue == "fail") {
-                invariant(childrenCount == 2);
-                auto code = static_cast<ErrorCodes::Error>(exprs.get(children[0]).int32Value);
-                std::string message{exprs.get(children[1]).stringValue};
-                return makeE<EFail>(code, message);
+            if (stringValue == "toInt32") {
+                invariant(childrenCount == 1);
+                return makeE<ENumericConvert>(std::move(compiledChildren[0]), value::TypeTags::NumberInt32);
             }
 
             return makeE<EFunction>(stringValue, std::move(compiledChildren));

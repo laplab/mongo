@@ -230,14 +230,16 @@ private:
     constexpr Token consumeIdentifierOrKeyword() {
         const char* start = _input.data();
         long long length = 0;
+        bool firstChar = true;
         while (true) {
             char current = peek();
-            if (!isAlpha(current)) {
+            if (!(isAlpha(current) || (!firstChar && isDigit(current)))) {
                 break;
             }
 
             length++;
             advance();
+            firstChar = false;
         }
 
         std::string_view identifier(start, length);
