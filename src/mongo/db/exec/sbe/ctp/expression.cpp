@@ -46,6 +46,14 @@ std::unique_ptr<EExpression> Expression::build(const ExpressionPool& exprs, Buil
                 auto compiledChild = exprs.get(children[i]).build(exprs, context);
                 compiledChildren.emplace_back(std::move(compiledChild));
             }
+
+            if (stringValue == "fail") {
+                invariant(childrenCount == 2);
+                auto code = static_cast<ErrorCodes::Error>(exprs.get(children[0]).int32Value);
+                std::string message{exprs.get(children[1]).stringValue};
+                return makeE<EFail>(code, message);
+            }
+
             return makeE<EFunction>(stringValue, std::move(compiledChildren));
         }
 

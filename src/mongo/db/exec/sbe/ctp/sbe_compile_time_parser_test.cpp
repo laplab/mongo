@@ -84,6 +84,13 @@ TEST_F(SBECompileTimeParserTest, TestFunction) {
     assertExpr(std::move(expr), "getElement (Nothing, Nothing) ");
 }
 
+TEST_F(SBECompileTimeParserTest, TestFail) {
+    constexpr auto code = "fail(123, 'Failed to do something')"_sbe;
+    auto expr = code(_frameIdGenerator);
+
+    assertExpr(std::move(expr), "fail ( 123 ,Failed to do something) ");
+}
+
 TEST_F(SBECompileTimeParserTest, TestLogicOperators) {
     constexpr auto code1 = "true || false"_sbe;
     assertExpr(code1(_frameIdGenerator), "( true || false ) ");

@@ -339,18 +339,36 @@ private:
         auto [exprId, expr] = _pool.allocate(ExpressionType::FunctionCall, name);
         consume(TokenType::LeftParen);
 
-        bool isFirst = true;
-        while (!match(TokenType::RightParen)) {
-            if (!isFirst) {
-                consume(TokenType::Comma);
+        if (name == "fail") {
+            consumeFailArguments(expr);
+        } else {
+            bool isFirst = true;
+            while (!match(TokenType::RightParen)) {
+                if (!isFirst) {
+                    consume(TokenType::Comma);
+                }
+                isFirst = false;
+                ExpressionId childId = parseInternal(0);
+                expr.pushChild(childId);
             }
-            isFirst = false;
-            ExpressionId childId = parseInternal(0);
-            expr.pushChild(childId);
         }
 
         consume(TokenType::RightParen);
         return exprId;
+    }
+
+    constexpr void consumeFailArguments(Expression& expr) {
+        if (!match(TokenType::Integer)) {
+            throw std::logic_error("First argument of fail() must me error code (32-bit integer)");
+        }
+        expr.pushChild(consumeInteger());
+
+        consume(TokenType::Comma);
+
+        if (!match(TokenType::String)) {
+            throw std::logic_error("Second argument of fail() must me error message string");
+        }
+        expr.pushChild(consumeString());
     }
 
     constexpr void advance() {
