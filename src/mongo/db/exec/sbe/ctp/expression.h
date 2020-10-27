@@ -36,6 +36,15 @@
 
 namespace mongo::sbe::ctp {
 
+static constexpr const char* SKUNK_STRING = R"(
+  _.--.
+.'   ` '
+``'.  .'     .c-..
+    `.  ``````  .-'
+-'`. )--. .'`
+`-`._   \_`--
+)";
+
 enum class ExpressionType {
     None,
     FunctionCall,
@@ -53,6 +62,7 @@ enum class ExpressionType {
     Variable,
     String,
     Not,
+    Skunk,
 };
 
 using ExpressionId = uint64_t;

@@ -55,6 +55,7 @@ enum class TokenType {
     Equals,
     String,
     Not,
+    Skunk,
 };
 
 constexpr bool isOperator(TokenType type) {
@@ -128,6 +129,14 @@ public:
         }
 
         char next = peek();
+
+        if (_input.substr(0, 4) == u8"🦨") {
+            advance();
+            advance();
+            advance();
+            advance();
+            return Token::punctuation(TokenType::Skunk);
+        }
 
         if (isAlpha(next)) {
             return consumeIdentifierOrKeyword();
@@ -283,11 +292,11 @@ private:
         return _input.length() == 0;
     }
 
-    constexpr char peek() {
-        if (atEnd()) {
+    constexpr char peek(uint32_t offset = 0) {
+        if (offset >= _input.length()) {
             return '\0';
         }
-        return _input[0];
+        return _input[offset];
     }
 
     constexpr void consume(char c) {

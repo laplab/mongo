@@ -155,6 +155,11 @@ std::unique_ptr<EExpression> Expression::build(const ExpressionPool& exprs, Buil
             return makeE<EPrimUnary>(EPrimUnary::logicNot, std::move(argument));
         }
 
+        case ExpressionType::Skunk: {
+            auto [tag, value] = value::makeNewString(SKUNK_STRING);
+            return makeE<EConstant>(tag, value);
+        }
+
         case ExpressionType::None:
             MONGO_UNREACHABLE;
     }

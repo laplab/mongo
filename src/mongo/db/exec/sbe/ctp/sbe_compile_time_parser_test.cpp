@@ -225,4 +225,9 @@ TEST_F(SBECompileTimeParserTest, TestLet) {
     assertExpr(code2(_frameIdGenerator), "let [l2.0 = true, l2.1 = false] let [l3.0 = 1, l3.1 = Nothing] if (l2.0, ( l3.1 && l2.1 ), ( l3.0 || l3.1 )) ");
 }
 
+TEST_F(SBECompileTimeParserTest, TestSkunk) {
+    constexpr auto code = u8"🦨"_sbe;
+    assertExpr(code(_frameIdGenerator), str::stream() << '"' << SKUNK_STRING << "\" ");
+}
+
 }  // namespace mongo::sbe

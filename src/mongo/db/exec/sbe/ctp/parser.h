@@ -58,6 +58,8 @@ constexpr ExpressionType getKeywordType(TokenType type) {
             return ExpressionType::Nothing;
         case TokenType::Null:
             return ExpressionType::Null;
+        case TokenType::Skunk:
+            return ExpressionType::Skunk;
         default:
             throw std::logic_error("Expected keyword token type");
     }
@@ -139,6 +141,7 @@ private:
                 break;
             case TokenType::Nothing:
             case TokenType::Null:
+            case TokenType::Skunk:
                 leftExprId = consumeKeyword();
                 break;
             case TokenType::Integer:
