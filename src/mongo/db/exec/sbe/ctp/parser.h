@@ -154,6 +154,11 @@ private:
             case TokenType::String:
                 leftExprId = consumeString();
                 break;
+            case TokenType::LeftParen:
+                consume(TokenType::LeftParen);
+                leftExprId = parseInternal(0);
+                consume(TokenType::RightParen);
+                break;
             default:
                 throw std::logic_error("Unexpected token type");
         }

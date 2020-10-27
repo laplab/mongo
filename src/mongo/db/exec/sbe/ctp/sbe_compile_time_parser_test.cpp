@@ -117,6 +117,23 @@ TEST_F(SBECompileTimeParserTest, TestLogicOperators) {
     assertExpr(code8(_frameIdGenerator), "( ( true && false ) && true ) ");
 }
 
+TEST_F(SBECompileTimeParserTest, TestParens) {
+    constexpr auto code1 = "(true)"_sbe;
+    assertExpr(code1(_frameIdGenerator), "true ");
+
+    constexpr auto code2 = "(((true)))"_sbe;
+    assertExpr(code2(_frameIdGenerator), "true ");
+
+    constexpr auto code3 = "((true)) || (false)"_sbe;
+    assertExpr(code3(_frameIdGenerator), "( true || false ) ");
+
+    constexpr auto code5 = "(true || false) && true"_sbe;
+    assertExpr(code5(_frameIdGenerator), "( ( true || false ) && true ) ");
+
+    constexpr auto code6 = "true && (true || false)"_sbe;
+    assertExpr(code6(_frameIdGenerator), "( true && ( true || false ) ) ");
+}
+
 TEST_F(SBECompileTimeParserTest, TestPlaceholders) {
     constexpr auto code = "getElement({0}, {1})"_sbe;
     auto expr = code(
