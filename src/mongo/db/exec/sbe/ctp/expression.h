@@ -54,7 +54,7 @@ enum class ExpressionType {
 };
 
 using ExpressionId = uint64_t;
-struct ExpressionPool;
+class ExpressionPool;
 
 struct VariablesFrame {
     FrameId frameId;
@@ -116,7 +116,8 @@ struct Expression {
     uint64_t childrenCount;
 };
 
-struct ExpressionPool {
+class ExpressionPool {
+public:
     template <typename... Args>
     auto operator()(value::FrameIdGenerator& frameIdGenerator, Args&&... args) const {
         std::vector<std::unique_ptr<sbe::EExpression>> indexedPlaceholders;
@@ -135,19 +136,22 @@ struct ExpressionPool {
         return pool[index];
     }
 
-    constexpr Expression& get(ExpressionId index) {
-        return pool[index];
-    }
-
-    constexpr ExpressionId allocate() {
+    template <typename... Args>
+    constexpr std::pair<ExpressionId, Expression&> allocate(Args&&... args) {
         if (current == MAX_SIZE) {
             throw std::logic_error("Not enough space, increase MAX_SIZE constant.");
         }
         ExpressionId index = current;
         current++;
-        return index;
+        pool[index] = Expression{std::forward<Args>(args)...};
+        return {index, pool[index]};
     }
 
+    constexpr void setRootId(ExpressionId exprId) {
+        rootId = exprId;
+    }
+
+private:
     ExpressionId rootId = 0;
     static constexpr long long MAX_SIZE = 100;
     Expression pool[MAX_SIZE];
