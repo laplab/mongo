@@ -36,7 +36,7 @@ namespace mongo::sbe::ctp {
 std::unique_ptr<EExpression> Expression::build(const ExpressionPool& exprs, BuildContext& context) const {
     switch (type) {
         case ExpressionType::Placeholder:
-            return std::move(context.indexedPlaceholders[data.index]);
+            return std::move(context.indexedPlaceholders[placeholderIndex]);
 
         case ExpressionType::FunctionCall: {
             auto compiledChildren = makeEs();
@@ -46,7 +46,7 @@ std::unique_ptr<EExpression> Expression::build(const ExpressionPool& exprs, Buil
                 auto compiledChild = exprs.get(children[i]).build(exprs, context);
                 compiledChildren.emplace_back(std::move(compiledChild));
             }
-            return makeE<EFunction>(data.name, std::move(compiledChildren));
+            return makeE<EFunction>(identifierName, std::move(compiledChildren));
         }
 
         case ExpressionType::Nothing:
@@ -56,13 +56,13 @@ std::unique_ptr<EExpression> Expression::build(const ExpressionPool& exprs, Buil
             return makeE<EConstant>(value::TypeTags::Null, value::bitcastFrom<int64_t>(0));
 
         case ExpressionType::Int32:
-            return makeE<EConstant>(value::TypeTags::NumberInt32, value::bitcastFrom<int32_t>(data.int32Value));
+            return makeE<EConstant>(value::TypeTags::NumberInt32, value::bitcastFrom<int32_t>(int32Value));
 
         case ExpressionType::Int64:
-            return makeE<EConstant>(value::TypeTags::NumberInt64, value::bitcastFrom<int64_t>(data.int64Value));
+            return makeE<EConstant>(value::TypeTags::NumberInt64, value::bitcastFrom<int64_t>(int64Value));
 
         case ExpressionType::Boolean:
-            return makeE<EConstant>(value::TypeTags::Boolean, value::bitcastFrom<bool>(data.boolean));
+            return makeE<EConstant>(value::TypeTags::Boolean, value::bitcastFrom<bool>(boolValue));
 
         case ExpressionType::Or:
         case ExpressionType::And: {
@@ -86,50 +86,37 @@ std::unique_ptr<EExpression> Expression::build(const ExpressionPool& exprs, Buil
         }
 
         case ExpressionType::VariableAssignment: {
-            auto& frame = context.variablesStack.top();
-            auto variableIndex = frame.variableNames.size();
-
-            frame.variableNames.push_back(data.name);
-            auto variableValue = exprs.get(children[0]).build(exprs, context);
-            context.variableMap[data.name] = std::make_pair(
-                makeE<EVariable>(frame.frameId, variableIndex),
-                std::move(variableValue)
-            );
-
             if (childrenCount > 1) {
                 exprs.get(children[1]).build(exprs, context);
             }
+
+            auto variableValue = exprs.get(children[0]).build(exprs, context);
+            auto& frame = context.variableStack.back();
+            frame.binds.emplace_back(std::move(variableValue));
+
             return nullptr;
         }
 
         case ExpressionType::Variable: {
-            auto it = context.variableMap.find(data.name);
-            invariant(it != context.variableMap.end());
-            return it->second.first->clone();
+            auto& frame = context.variableStack[frameIndex];
+            return makeE<EVariable>(frame.frameId, variableId);
         }
 
         case ExpressionType::Let: {
             auto frameId = context.frameIdGenerator.generate();
-            context.variablesStack.push({frameId, {}});
+            context.variableStack.push_back({frameId, {}});
 
-            // Fill frame and map with data, but ignore the result.
+            // Fill binds vector located on the top of 'variableStack'.
             exprs.get(children[0]).build(exprs, context);
 
-            // Build in expression while all variables are in context.
+            // Build 'in' expression.
             auto inBodyExpr = exprs.get(children[1]).build(exprs, context);
 
-            auto& topFrame = context.variablesStack.top();
-            auto binds = makeEs();
-            for (const auto& name : topFrame.variableNames) {
-                auto it = context.variableMap.find(name);
-                invariant(it != context.variableMap.end());
-                binds.emplace_back(std::move(it->second.second));
-                context.variableMap.erase(it);
-            }
+            auto& frame = context.variableStack.back();
+            auto letExpr = makeE<ELocalBind>(frame.frameId, std::move(frame.binds), std::move(inBodyExpr));
+            context.variableStack.pop_back();
 
-            context.variablesStack.pop();
-
-            return makeE<ELocalBind>(frameId, std::move(binds), std::move(inBodyExpr));
+            return letExpr;
         }
 
         case ExpressionType::None:

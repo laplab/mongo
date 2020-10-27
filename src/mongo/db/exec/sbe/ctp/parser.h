@@ -75,10 +75,49 @@ constexpr std::pair<BindingPower, BindingPower> getBindingPower(TokenType type) 
     }
 }
 
+class ExpressionIdStack {
+public:
+    constexpr ExpressionIdStack() : _currentPos(0), _stack() {}
+
+    constexpr const ExpressionId* begin() const {
+        return _stack;
+    }
+
+    constexpr const ExpressionId* end() const {
+        return begin() + _currentPos;
+    }
+
+    constexpr void push(ExpressionId exprId) {
+        if (_currentPos == MAX_SIZE) {
+            throw std::logic_error("Maximum stack size exceeded");
+        }
+        _stack[_currentPos++] = exprId;
+    }
+
+    constexpr void pop() {
+        if (_currentPos == 0) {
+            throw std::logic_error("Stack is empty");
+        }
+        _currentPos--;
+    }
+
+    constexpr ExpressionId top() const {
+        if (_currentPos == 0) {
+            throw std::logic_error("Stack is empty");
+        }
+        return _stack[_currentPos - 1];
+    }
+
+private:
+    static constexpr long long MAX_SIZE = 20;
+    uint64_t _currentPos = 0;
+    ExpressionId _stack[MAX_SIZE];
+};
+
 class Parser {
 public:
     constexpr Parser(std::string_view input)
-        : _tokenizer(input), _current(_tokenizer.next()), _pool() {}
+        : _tokenizer(input), _current(_tokenizer.next()), _pool(), _variableStack(), currentFrameIndex(0) {}
 
     constexpr ExpressionPool parse() {
         _pool.setRootId(parseInternal(0));
@@ -155,7 +194,9 @@ private:
     constexpr ExpressionId consumeLet() {
         consume(TokenType::Let);
 
-        ExpressionId variableTreeId = 0;
+        uint64_t frameIndex = currentFrameIndex++;
+        ExpressionId variableListId = 0;
+        value::SlotId currentVariableId = 0;
         bool isFirst = true;
         while (true) {
             if (match(TokenType::Comma)) {
@@ -165,28 +206,36 @@ private:
             }
 
             auto variableName = _current.data.name;
+            auto [existingSlotId, existingFrameIndex, isAlreadyDefined] = lookupVariableByName(variableName);
+            if (isAlreadyDefined) {
+                throw std::logic_error("Variable redifinition detected");
+            }
+
             consume(TokenType::Identifier);
             consume(TokenType::Equals);
 
             auto variableValue = parseInternal(0);
 
-            auto [variableExprId, variable] = _pool.allocate(ExpressionType::VariableAssignment, variableName);
+            auto [variableExprId, variable] = _pool.allocate(variableName, currentVariableId++, frameIndex);
             variable.pushChild(variableValue);
 
             if (!isFirst) {
-                variable.pushChild(variableTreeId);
+                variable.pushChild(variableListId);
             }
-            variableTreeId = variableExprId;
+            variableListId = variableExprId;
 
             isFirst = false;
         }
 
         consume(TokenType::In);
         consume(TokenType::LeftCurlyBrace);
+
+        _variableStack.push(variableListId);
         auto inExprId = parseInternal(0);
+        _variableStack.pop();
 
         auto [letExprId, letExpr] = _pool.allocate(ExpressionType::Let);
-        letExpr.pushChild(variableTreeId);
+        letExpr.pushChild(variableListId);
         letExpr.pushChild(inExprId);
 
         consume(TokenType::RightCurlyBrace);
@@ -237,16 +286,42 @@ private:
         return exprId;
     }
 
+    constexpr std::tuple<value::SlotId, uint64_t, bool> lookupVariableByName(std::string_view name) const {
+        for (const auto& variableListId : _variableStack) {
+            auto currentVariableId = variableListId;
+            while (true) {
+                auto& currentVariable = _pool.get(currentVariableId);
+                if (currentVariable.identifierName == name) {
+                    return {currentVariable.variableId, currentVariable.frameIndex, true};
+                }
+
+                if (currentVariable.childrenCount < 2) {
+                    break;
+                }
+
+                currentVariableId = currentVariable.children[1];
+            }
+        }
+
+        return {0, 0, false};
+    }
+
     constexpr ExpressionId consumeVariableOrFunctionCall() {
         auto name = _current.data.name;
         consume(TokenType::Identifier);
 
         if (!match(TokenType::LeftParen)) {
-            auto [exprId, _] = _pool.allocate(ExpressionType::Variable, name);
+            auto [slotId, frameIndex, isDefined] = lookupVariableByName(name);
+
+            if (!isDefined) {
+                throw std::logic_error("Undefined variable");
+            }
+
+            auto [exprId, _] = _pool.allocate(slotId, frameIndex);
             return exprId;
         }
 
-        auto [exprId, expr] = _pool.allocate(ExpressionType::FunctionCall, name);
+        auto [exprId, expr] = _pool.allocate(name);
         consume(TokenType::LeftParen);
 
         bool isFirst = true;
@@ -285,6 +360,8 @@ private:
     Tokenizer _tokenizer;
     Token _current;
     ExpressionPool _pool;
+    ExpressionIdStack _variableStack;
+    uint64_t currentFrameIndex;
 };
 
 constexpr ExpressionPool operator""_sbe(const char* str, size_t length) {

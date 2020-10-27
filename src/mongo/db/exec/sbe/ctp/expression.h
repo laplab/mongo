@@ -58,7 +58,7 @@ class ExpressionPool;
 
 struct VariablesFrame {
     FrameId frameId;
-    std::vector<std::string_view> variableNames;
+    std::vector<std::unique_ptr<EExpression>> binds;
 };
 
 struct BuildContext {
@@ -66,35 +66,74 @@ struct BuildContext {
         : frameIdGenerator(frameIdGenerator), indexedPlaceholders(indexedPlaceholders) {}
 
     value::FrameIdGenerator& frameIdGenerator;
-    std::stack<VariablesFrame> variablesStack;
-    std::unordered_map<std::string_view, std::pair<std::unique_ptr<EExpression>, std::unique_ptr<EExpression>>> variableMap;
+    std::vector<VariablesFrame> variableStack;
     std::vector<std::unique_ptr<sbe::EExpression>>& indexedPlaceholders;
 };
 
 struct Expression {
     constexpr Expression()
-        : Expression(ExpressionType::None) {}
+        : type(ExpressionType::None)
+        , placeholderIndex(0)
+        , identifierName("")
+        , int32Value(0)
+        , int64Value(0)
+        , boolValue(false)
+        , variableId(0)
+        , frameIndex(0)
+        , childrenCount(0)
+        , children()
+    {}
 
-    explicit constexpr Expression(bool value)
-        : type(ExpressionType::Boolean), data({.boolean = value}), children(), childrenCount(0) {}
+    explicit constexpr Expression(ExpressionType exprType)
+        : Expression()
+    {
+        type = exprType;
+    }
 
-    explicit constexpr Expression(int64_t value)
-        : type(ExpressionType::Int64), data({.int64Value = value}), children(), childrenCount(0) {}
+    template <typename T>
+    explicit constexpr Expression(T value)
+        : Expression()
+    {
+        if constexpr (std::is_same_v<T, bool>) {
+            type = ExpressionType::Boolean;
+            boolValue = value;
+        } else if constexpr (std::is_same_v<T, int32_t>) {
+            type = ExpressionType::Int32;
+            int32Value = value;
+        } else if constexpr (std::is_same_v<T, int64_t>) {
+            type = ExpressionType::Int64;
+            int64Value = value;
+        } else if constexpr (std::is_same_v<T, uint64_t>) {
+            type = ExpressionType::Placeholder;
+            placeholderIndex = value;
+        } else {
+            throw std::logic_error("Unexpected type");
+        }
+    }
 
-    explicit constexpr Expression(int32_t value)
-        : type(ExpressionType::Int32), data({.int32Value = value}), children(), childrenCount(0) {}
+    explicit constexpr Expression(value::SlotId slotId, uint64_t frameId)
+        : Expression()
+    {
+        type = ExpressionType::Variable;
+        variableId = slotId;
+        frameIndex = frameId;
+    }
 
-    explicit constexpr Expression(ExpressionType type)
-        : type(type), data({.index = 0}), children(), childrenCount(0) {}
+    explicit constexpr Expression(std::string_view name, value::SlotId slotId, uint64_t frameId)
+        : Expression()
+    {
+        type = ExpressionType::VariableAssignment;
+        identifierName = name;
+        variableId = slotId;
+        frameIndex = frameId;
+    }
 
-    explicit constexpr Expression(uint64_t index)
-        : type(ExpressionType::Placeholder),
-          data({.index = index}),
-          children(),
-          childrenCount(0) {}
-
-    explicit constexpr Expression(ExpressionType type, std::string_view name)
-        : type(type), data({.name = name}), children(), childrenCount(0) {}
+    explicit constexpr Expression(std::string_view name)
+        : Expression()
+    {
+        type = ExpressionType::FunctionCall;
+        identifierName = name;
+    }
 
     constexpr void pushChild(ExpressionId childIndex) {
         children[childrenCount++] = childIndex;
@@ -103,17 +142,17 @@ struct Expression {
     std::unique_ptr<sbe::EExpression> build(const ExpressionPool& exprs, BuildContext& context) const;
 
     ExpressionType type;
-    union {
-        uint64_t index;
-        std::string_view name;
-        int32_t int32Value;
-        int64_t int64Value;
-        bool boolean;
-    } data;
+    uint64_t placeholderIndex;
+    std::string_view identifierName;
+    int32_t int32Value;
+    int64_t int64Value;
+    bool boolValue;
+    value::SlotId variableId;
+    uint64_t frameIndex;
 
+    uint64_t childrenCount;
     static constexpr long long MAX_CHILDREN = 3;
     ExpressionId children[MAX_CHILDREN];
-    uint64_t childrenCount;
 };
 
 class ExpressionPool {

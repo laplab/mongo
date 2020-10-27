@@ -145,7 +145,7 @@ TEST_F(SBECompileTimeParserTest, TestLet) {
             x || y
         }
     )"_sbe;
-    assertExpr(code1(_frameIdGenerator), "let [l1.0 = false, l1.1 = true] ( l1.1 || l1.0 ) ");
+    assertExpr(code1(_frameIdGenerator), "let [l1.0 = true, l1.1 = false] ( l1.0 || l1.1 ) ");
 
     constexpr auto code2 = R"(
         let a = true, b = false in {
@@ -158,7 +158,7 @@ TEST_F(SBECompileTimeParserTest, TestLet) {
             }
         }
     )"_sbe;
-    assertExpr(code2(_frameIdGenerator), "let [l2.0 = false, l2.1 = true] let [l3.0 = Nothing, l3.1 = 1] if (l2.1, ( l3.0 && l2.0 ), ( l3.1 || l3.0 )) ");
+    assertExpr(code2(_frameIdGenerator), "let [l2.0 = true, l2.1 = false] let [l3.0 = 1, l3.1 = Nothing] if (l2.0, ( l3.1 && l2.1 ), ( l3.0 || l3.1 )) ");
 }
 
 }  // namespace mongo::sbe
