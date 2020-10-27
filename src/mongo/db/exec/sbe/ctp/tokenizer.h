@@ -47,6 +47,7 @@ enum class TokenType {
     Or,
     If,
     Else,
+    Elif,
     LeftCurlyBrace,
     RightCurlyBrace,
     Let,
@@ -227,6 +228,8 @@ private:
             return Token::keyword(TokenType::If);
         } else if (identifier == "else") {
             return Token::keyword(TokenType::Else);
+        } else if (identifier == "elif") {
+            return Token::keyword(TokenType::Elif);
         } else if (identifier == "let") {
             return Token::keyword(TokenType::Let);
         } else if (identifier == "in") {

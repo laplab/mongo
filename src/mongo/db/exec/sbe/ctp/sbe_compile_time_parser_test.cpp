@@ -137,6 +137,19 @@ TEST_F(SBECompileTimeParserTest, TestIf) {
         }
     )"_sbe;
     assertExpr(code3(_frameIdGenerator), "if (true, if (false, 123, 456), if (Nothing, 789, 987)) ");
+
+    constexpr auto code4 = R"(
+        if true {
+            123
+        } elif false {
+            456
+        } elif Nothing {
+            789
+        } else {
+            0
+        }
+    )"_sbe;
+    assertExpr(code4(_frameIdGenerator), "if (true, 123, if (false, 456, if (Nothing, 789, 0))) ");
 }
 
 TEST_F(SBECompileTimeParserTest, TestLet) {

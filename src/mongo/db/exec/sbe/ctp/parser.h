@@ -243,16 +243,22 @@ private:
         return letExprId;
     }
 
-    constexpr ExpressionId consumeIf() {
-        consume(TokenType::If);
+    constexpr ExpressionId consumeIf(TokenType startToken = TokenType::If) {
+        consume(startToken);
         auto conditionExprId = parseInternal(0);
         consume(TokenType::LeftCurlyBrace);
         auto thenExprId = parseInternal(0);
         consume(TokenType::RightCurlyBrace);
-        consume(TokenType::Else);
-        consume(TokenType::LeftCurlyBrace);
-        auto elseExprId = parseInternal(0);
-        consume(TokenType::RightCurlyBrace);
+
+        ExpressionId elseExprId = 0;
+        if (match(TokenType::Else)) {
+            consume(TokenType::Else);
+            consume(TokenType::LeftCurlyBrace);
+            elseExprId = parseInternal(0);
+            consume(TokenType::RightCurlyBrace);
+        } else {
+            elseExprId = consumeIf(TokenType::Elif);
+        }
 
         auto [ifExprId, ifExpr] = _pool.allocate(ExpressionType::If);
         ifExpr.pushChild(conditionExprId);
