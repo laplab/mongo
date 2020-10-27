@@ -151,6 +151,9 @@ private:
             case TokenType::Let:
                 leftExprId = consumeLet();
                 break;
+            case TokenType::String:
+                leftExprId = consumeString();
+                break;
             default:
                 throw std::logic_error("Unexpected token type");
         }
@@ -205,7 +208,7 @@ private:
                 break;
             }
 
-            auto variableName = _current.data.name;
+            auto variableName = _current.data.string;
             auto [existingSlotId, existingFrameIndex, isAlreadyDefined] = lookupVariableByName(variableName);
             if (isAlreadyDefined) {
                 throw std::logic_error("Variable redifinition detected");
@@ -273,6 +276,12 @@ private:
         return exprId;
     }
 
+    constexpr ExpressionId consumeString() {
+        auto [exprId, _] = _pool.allocate(ExpressionType::String, _current.data.string);
+        consume(TokenType::String);
+        return exprId;
+    }
+
     constexpr ExpressionId consumeInteger() {
         ExpressionId exprId = 0;
         if (_current.data.integer.is64Bit) {
@@ -297,7 +306,7 @@ private:
             auto currentVariableId = variableListId;
             while (true) {
                 auto& currentVariable = _pool.get(currentVariableId);
-                if (currentVariable.identifierName == name) {
+                if (currentVariable.stringValue == name) {
                     return {currentVariable.variableId, currentVariable.frameIndex, true};
                 }
 
@@ -313,7 +322,7 @@ private:
     }
 
     constexpr ExpressionId consumeVariableOrFunctionCall() {
-        auto name = _current.data.name;
+        auto name = _current.data.string;
         consume(TokenType::Identifier);
 
         if (!match(TokenType::LeftParen)) {
@@ -327,7 +336,7 @@ private:
             return exprId;
         }
 
-        auto [exprId, expr] = _pool.allocate(name);
+        auto [exprId, expr] = _pool.allocate(ExpressionType::FunctionCall, name);
         consume(TokenType::LeftParen);
 
         bool isFirst = true;

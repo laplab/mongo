@@ -68,6 +68,13 @@ TEST_F(SBECompileTimeParserTest, TestBasic) {
 
     constexpr auto code6 = "false"_sbe;
     assertExpr(code6(_frameIdGenerator), "false ");
+
+    constexpr auto code7 = "'string with spaces'"_sbe;
+    assertExpr(code7(_frameIdGenerator), "\"string with spaces\" ");
+
+    constexpr auto code8 = "\"double quoted string with spaces\""_sbe;
+    assertExpr(code8(_frameIdGenerator), "\"double quoted string with spaces\" ");
+
 }
 
 TEST_F(SBECompileTimeParserTest, TestFunction) {

@@ -51,6 +51,7 @@ enum class ExpressionType {
     VariableAssignment,
     Let,
     Variable,
+    String,
 };
 
 using ExpressionId = uint64_t;
@@ -74,7 +75,7 @@ struct Expression {
     constexpr Expression()
         : type(ExpressionType::None)
         , placeholderIndex(0)
-        , identifierName("")
+        , stringValue("")
         , int32Value(0)
         , int64Value(0)
         , boolValue(false)
@@ -123,16 +124,16 @@ struct Expression {
         : Expression()
     {
         type = ExpressionType::VariableAssignment;
-        identifierName = name;
+        stringValue = name;
         variableId = slotId;
         frameIndex = frameId;
     }
 
-    explicit constexpr Expression(std::string_view name)
+    explicit constexpr Expression(ExpressionType exprType, std::string_view name)
         : Expression()
     {
-        type = ExpressionType::FunctionCall;
-        identifierName = name;
+        type = exprType;
+        stringValue = name;
     }
 
     constexpr void pushChild(ExpressionId childIndex) {
@@ -143,7 +144,7 @@ struct Expression {
 
     ExpressionType type;
     uint64_t placeholderIndex;
-    std::string_view identifierName;
+    std::string_view stringValue;
     int32_t int32Value;
     int64_t int64Value;
     bool boolValue;

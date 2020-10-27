@@ -46,7 +46,7 @@ std::unique_ptr<EExpression> Expression::build(const ExpressionPool& exprs, Buil
                 auto compiledChild = exprs.get(children[i]).build(exprs, context);
                 compiledChildren.emplace_back(std::move(compiledChild));
             }
-            return makeE<EFunction>(identifierName, std::move(compiledChildren));
+            return makeE<EFunction>(stringValue, std::move(compiledChildren));
         }
 
         case ExpressionType::Nothing:
@@ -117,6 +117,11 @@ std::unique_ptr<EExpression> Expression::build(const ExpressionPool& exprs, Buil
             context.variableStack.pop_back();
 
             return letExpr;
+        }
+
+        case ExpressionType::String: {
+            auto [tag, value] = value::makeNewString(stringValue);
+            return makeE<EConstant>(tag, value);
         }
 
         case ExpressionType::None:

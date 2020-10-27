@@ -53,6 +53,7 @@ enum class TokenType {
     Let,
     In,
     Equals,
+    String,
 };
 
 constexpr bool isOperator(TokenType type) {
@@ -63,12 +64,12 @@ struct Token {
     TokenType type;
 
     union {
-        std::string_view name;
         struct {
             int64_t value;
             bool is64Bit;
         } integer;
         bool boolean;
+        std::string_view string;
     } data;
 
     static constexpr Token boolean(bool value) {
@@ -79,8 +80,8 @@ struct Token {
         return Token{TokenType::Integer, {.integer = {value, is64Bit}}};
     }
 
-    static constexpr Token identifer(std::string_view name) {
-        return Token{TokenType::Identifier, {.name = name}};
+    static constexpr Token stringValue(TokenType type, std::string_view string) {
+        return Token{type, {.string = string}};
     }
 
     static constexpr Token keyword(TokenType type) {
@@ -135,6 +136,10 @@ public:
             return consumeInteger();
         }
 
+        if (next == '"' || next == '\'') {
+            return consumeString();
+        }
+
         TokenType type = TokenType::Eof;
         switch (next) {
             case '(':
@@ -180,6 +185,22 @@ public:
     }
 
 private:
+    constexpr Token consumeString() {
+        char quoteType = '"';
+        if (peek() == '\'') {
+            quoteType = '\'';
+        }
+        consume(quoteType);
+        const char* stringStart = _input.data();
+        uint64_t length = 0;
+        while (peek() != quoteType) {
+            length++;
+            advance();
+        }
+        consume(quoteType);
+        return Token::stringValue(TokenType::String, std::string_view(stringStart, length));
+    }
+
     constexpr Token consumeInteger() {
         int64_t value = 0;
         while (true) {
@@ -236,7 +257,7 @@ private:
             return Token::keyword(TokenType::In);
         }
 
-        return Token::identifer(identifier);
+        return Token::stringValue(TokenType::Identifier, identifier);
     }
 
     constexpr void trimWhitespace() {
