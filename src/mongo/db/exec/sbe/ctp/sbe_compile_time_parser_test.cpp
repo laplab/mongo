@@ -90,6 +90,13 @@ TEST_F(SBECompileTimeParserTest, TestBuiltins) {
 
     constexpr auto code2 = "toInt32(123l)"_sbe;
     assertExpr(code2(_frameIdGenerator), "convert ( 123l, int32) ");
+
+    constexpr auto code3 = R"(
+        let x = 123, y = 456 in {
+            nullOrMissing(x) || nullOrMissing(y)
+        }
+    )"_sbe;
+    assertExpr(code3(_frameIdGenerator), "let [l1.0 = 123, l1.1 = 456] ( ( ! exists (l1.0) || isNull (l1.0) ) || ( ! exists (l1.1) || isNull (l1.1) ) ) ");
 }
 
 TEST_F(SBECompileTimeParserTest, TestLogicOperators) {

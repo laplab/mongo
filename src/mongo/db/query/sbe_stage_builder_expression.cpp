@@ -491,7 +491,7 @@ void buildArrayAccessByConstantIndex(ExpressionVisitorContext* context,
     using namespace mongo::sbe::ctp;
     constexpr auto code = R"(
         let array = {0} in {
-            if !exists(array) || isNull(array) {
+            if nullOrMissing(array) {
                 Null
             } elif !isArray(array) {
                 fail(5126704, "argument must be an array")
@@ -1180,7 +1180,7 @@ public:
         using namespace mongo::sbe::ctp;
         constexpr auto code = R"(
             let array = {0}, index = {1} in {
-                if !exists(array) || isNull(array) || !exists(index) || isNull(index) {
+                if nullOrMissing(array) || nullOrMissing(index) {
                     Null
                 } elif !isArray(array) {
                     fail(5126701, "$arrayElemAt first argument must be an array")
@@ -2082,7 +2082,7 @@ public:
         using namespace mongo::sbe::ctp;
         constexpr auto code = R"(
             let input = {0} in {
-                if !exists(input) || isNull(input) {
+                if nullOrMissing(input) {
                     {1}
                 } else {
                     input

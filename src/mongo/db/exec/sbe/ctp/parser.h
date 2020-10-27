@@ -337,19 +337,23 @@ private:
         return {0, 0, false};
     }
 
+    constexpr ExpressionId createVariable(std::string_view name) {
+        auto [slotId, frameIndex, isDefined] = lookupVariableByName(name);
+
+        if (!isDefined) {
+            throw std::logic_error("Undefined variable");
+        }
+
+        auto [exprId, _] = _pool.allocate(slotId, frameIndex);
+        return exprId;
+    }
+
     constexpr ExpressionId consumeVariableOrFunctionCall() {
         auto name = _current.data.string;
         consume(TokenType::Identifier);
 
         if (!match(TokenType::LeftParen)) {
-            auto [slotId, frameIndex, isDefined] = lookupVariableByName(name);
-
-            if (!isDefined) {
-                throw std::logic_error("Undefined variable");
-            }
-
-            auto [exprId, _] = _pool.allocate(slotId, frameIndex);
-            return exprId;
+            return createVariable(name);
         }
 
         auto [exprId, expr] = _pool.allocate(ExpressionType::FunctionCall, name);
@@ -357,22 +361,25 @@ private:
 
         if (name == "fail") {
             consumeFailArguments(expr);
+        } else if (name == "nullOrMissing") {
+            consumeNullOrMissingArguments(expr);
         } else if (name == "toInt32") {
-            consumeToInt32Arguments(expr);
+            consumeArguments(expr, 1);
         } else {
-            bool isFirst = true;
-            while (!match(TokenType::RightParen)) {
-                if (!isFirst) {
-                    consume(TokenType::Comma);
-                }
-                isFirst = false;
-                ExpressionId childId = parseInternal(0);
-                expr.pushChild(childId);
-            }
+            consumeArguments(expr);
         }
 
         consume(TokenType::RightParen);
         return exprId;
+    }
+
+    constexpr void consumeNullOrMissingArguments(Expression& expr) {
+        if (!match(TokenType::Identifier)) {
+            throw std::logic_error("nullOrMissing argument must be a variable");
+        }
+        auto name = _current.data.string;
+        consume(TokenType::Identifier);
+        expr.pushChild(createVariable(name));
     }
 
     constexpr void consumeFailArguments(Expression& expr) {
@@ -389,9 +396,16 @@ private:
         expr.pushChild(consumeString());
     }
 
-    constexpr void consumeToInt32Arguments(Expression& expr) {
-        ExpressionId childId = parseInternal(0);
-        expr.pushChild(childId);
+    constexpr void consumeArguments(Expression& expr, uint64_t maxArgumentsCount = Expression::MAX_CHILDREN) {
+        bool isFirst = true;
+        while (!match(TokenType::RightParen) && expr.childrenCount < maxArgumentsCount) {
+            if (!isFirst) {
+                consume(TokenType::Comma);
+            }
+            isFirst = false;
+            ExpressionId childId = parseInternal(0);
+            expr.pushChild(childId);
+        }
     }
 
     constexpr void advance() {

@@ -54,6 +54,18 @@ std::unique_ptr<EExpression> Expression::build(const ExpressionPool& exprs, Buil
                 compiledChildren.emplace_back(std::move(compiledChild));
             }
 
+            if (stringValue == "nullOrMissing") {
+                invariant(childrenCount == 1);
+                auto argument = std::move(compiledChildren[0]);
+                auto variable = static_cast<EVariable*>(argument.get());
+                return makeE<EPrimBinary>(
+                    EPrimBinary::logicOr,
+                    makeE<EPrimUnary>(EPrimUnary::logicNot,
+                                            makeE<EFunction>("exists", makeEs(variable->clone()))),
+                    makeE<EFunction>("isNull", makeEs(variable->clone()))
+                );
+            }
+
             if (stringValue == "toInt32") {
                 invariant(childrenCount == 1);
                 return makeE<ENumericConvert>(std::move(compiledChildren[0]), value::TypeTags::NumberInt32);
