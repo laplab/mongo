@@ -52,6 +52,7 @@ enum class ExpressionType {
     Let,
     Variable,
     String,
+    Not,
 };
 
 using ExpressionId = uint64_t;

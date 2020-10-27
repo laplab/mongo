@@ -132,6 +132,12 @@ std::unique_ptr<EExpression> Expression::build(const ExpressionPool& exprs, Buil
             return makeE<EConstant>(tag, value);
         }
 
+        case ExpressionType::Not: {
+            invariant(childrenCount == 1);
+            auto argument = exprs.get(children[0]).build(exprs, context);
+            return makeE<EPrimUnary>(EPrimUnary::logicNot, std::move(argument));
+        }
+
         case ExpressionType::None:
             MONGO_UNREACHABLE;
     }

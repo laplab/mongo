@@ -70,6 +70,8 @@ constexpr std::pair<BindingPower, BindingPower> getBindingPower(TokenType type) 
             return {1, 2};
         case TokenType::And:
             return {3, 4};
+        case TokenType::Not:
+            return {0, 5};
         default:
             throw std::logic_error("Expected operator token type");
     }
@@ -159,6 +161,15 @@ private:
                 leftExprId = parseInternal(0);
                 consume(TokenType::RightParen);
                 break;
+            case TokenType::Not: {
+                consume(TokenType::Not);
+                auto [_, rightBp] = getBindingPower(TokenType::Not);
+                auto rightExpr = parseInternal(rightBp);
+                auto [opExprId, opExpr] = _pool.allocate(ExpressionType::Not);
+                opExpr.pushChild(rightExpr);
+                leftExprId = opExprId;
+                break;
+            }
             default:
                 throw std::logic_error("Unexpected token type");
         }

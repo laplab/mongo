@@ -54,6 +54,7 @@ enum class TokenType {
     In,
     Equals,
     String,
+    Not,
 };
 
 constexpr bool isOperator(TokenType type) {
@@ -159,6 +160,9 @@ public:
                 break;
             case '=':
                 type = TokenType::Equals;
+                break;
+            case '!':
+                type = TokenType::Not;
                 break;
             case '&': {
                 advance();
