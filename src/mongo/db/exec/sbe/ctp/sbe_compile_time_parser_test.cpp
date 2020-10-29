@@ -74,7 +74,6 @@ TEST_F(SBECompileTimeParserTest, TestBasic) {
 
     constexpr auto code8 = "\"double quoted string with spaces\""_sbe;
     assertExpr(code8(_frameIdGenerator), "\"double quoted string with spaces\" ");
-
 }
 
 TEST_F(SBECompileTimeParserTest, TestFunction) {
@@ -96,7 +95,9 @@ TEST_F(SBECompileTimeParserTest, TestBuiltins) {
             nullOrMissing(x) || nullOrMissing(y)
         }
     )"_sbe;
-    assertExpr(code3(_frameIdGenerator), "let [l1.0 = 123, l1.1 = 456] ( ( ! exists (l1.0) || isNull (l1.0) ) || ( ! exists (l1.1) || isNull (l1.1) ) ) ");
+    assertExpr(code3(_frameIdGenerator),
+               "let [l1.0 = 123, l1.1 = 456] ( ( ! exists (l1.0) || isNull (l1.0) ) || ( ! exists "
+               "(l1.1) || isNull (l1.1) ) ) ");
 }
 
 TEST_F(SBECompileTimeParserTest, TestLogicOperators) {
@@ -178,11 +179,10 @@ TEST_F(SBECompileTimeParserTest, TestParens) {
 
 TEST_F(SBECompileTimeParserTest, TestPlaceholders) {
     constexpr auto code = "getElement({0}, {1})"_sbe;
-    auto expr = code(
-        _frameIdGenerator,
-        makeE<EConstant>(value::TypeTags::NumberInt64, value::bitcastFrom<int64_t>(123)),
-        makeE<EConstant>(value::TypeTags::Nothing, value::bitcastFrom<int64_t>(0))
-    );
+    auto expr =
+        code(_frameIdGenerator,
+             makeE<EConstant>(value::TypeTags::NumberInt64, value::bitcastFrom<int64_t>(123)),
+             makeE<EConstant>(value::TypeTags::Nothing, value::bitcastFrom<int64_t>(0)));
 
     assertExpr(std::move(expr), "getElement (123l, Nothing) ");
 }
@@ -209,7 +209,8 @@ TEST_F(SBECompileTimeParserTest, TestIf) {
             }
         }
     )"_sbe;
-    assertExpr(code3(_frameIdGenerator), "if (true, if (false, 123, 456), if (Nothing, 789, 987)) ");
+    assertExpr(code3(_frameIdGenerator),
+               "if (true, if (false, 123, 456), if (Nothing, 789, 987)) ");
 
     constexpr auto code4 = R"(
         if true {
@@ -244,7 +245,9 @@ TEST_F(SBECompileTimeParserTest, TestLet) {
             }
         }
     )"_sbe;
-    assertExpr(code2(_frameIdGenerator), "let [l2.0 = true, l2.1 = false] let [l3.0 = 1, l3.1 = Nothing] if (l2.0, ( l3.1 && l2.1 ), ( l3.0 || l3.1 )) ");
+    assertExpr(code2(_frameIdGenerator),
+               "let [l2.0 = true, l2.1 = false] let [l3.0 = 1, l3.1 = Nothing] if (l2.0, ( l3.1 && "
+               "l2.1 ), ( l3.0 || l3.1 )) ");
 }
 
 TEST_F(SBECompileTimeParserTest, TestSkunk) {

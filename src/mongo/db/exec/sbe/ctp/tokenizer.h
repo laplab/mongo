@@ -28,8 +28,8 @@
  */
 #pragma once
 
-#include <string_view>
 #include <stdexcept>
+#include <string_view>
 
 namespace mongo::sbe::ctp {
 
@@ -61,7 +61,8 @@ enum class TokenType {
 };
 
 constexpr bool isOperator(TokenType type) {
-    return type == TokenType::Or || type == TokenType::And || type == TokenType::Plus || type == TokenType::Minus;
+    return type == TokenType::Or || type == TokenType::And || type == TokenType::Plus ||
+        type == TokenType::Minus;
 }
 
 struct Token {
@@ -115,14 +116,11 @@ constexpr bool isWhitespace(char c) {
     return c == ' ' || c == '\t' || c == '\n';
 }
 
-}
+}  // namespace
 
 class Tokenizer {
 public:
-    constexpr Tokenizer(std::string_view input)
-        : _input(input)
-    {
-    }
+    constexpr Tokenizer(std::string_view input) : _input(input) {}
 
     constexpr Token next() {
         trimWhitespace();
@@ -317,4 +315,4 @@ private:
     std::string_view _input;
 };
 
-}
+}  // namespace mongo::sbe::ctp

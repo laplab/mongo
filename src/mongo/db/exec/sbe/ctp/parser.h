@@ -28,16 +28,16 @@
  */
 #pragma once
 
-#include <utility>
-#include <string_view>
-#include <stdexcept>
-#include <sstream>
-#include <string>
-#include <vector>
 #include <cstdint>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 
-#include "mongo/db/exec/sbe/ctp/tokenizer.h"
 #include "mongo/db/exec/sbe/ctp/expression.h"
+#include "mongo/db/exec/sbe/ctp/tokenizer.h"
 
 namespace mongo::sbe::ctp {
 
@@ -128,7 +128,11 @@ private:
 class Parser {
 public:
     constexpr Parser(std::string_view input)
-        : _tokenizer(input), _current(_tokenizer.next()), _pool(), _variableStack(), currentFrameIndex(0) {}
+        : _tokenizer(input),
+          _current(_tokenizer.next()),
+          _pool(),
+          _variableStack(),
+          currentFrameIndex(0) {}
 
     constexpr ExpressionPool parse() {
         _pool.setRootId(parseInternal(0));
@@ -212,7 +216,8 @@ private:
     constexpr ExpressionId consumePlaceholder() {
         consume(TokenType::LeftCurlyBrace);
         if (_current.data.integer.is64Bit) {
-            throw std::logic_error("Only 32-bit integer literals are supported as placeholder indexes");
+            throw std::logic_error(
+                "Only 32-bit integer literals are supported as placeholder indexes");
         }
         auto [exprId, expr] = _pool.allocate(static_cast<uint64_t>(_current.data.integer.value));
         consume(TokenType::Integer);
@@ -235,7 +240,8 @@ private:
             }
 
             auto variableName = _current.data.string;
-            auto [existingSlotId, existingFrameIndex, isAlreadyDefined] = lookupVariableByName(variableName);
+            auto [existingSlotId, existingFrameIndex, isAlreadyDefined] =
+                lookupVariableByName(variableName);
             if (isAlreadyDefined) {
                 throw std::logic_error("Variable redifinition detected");
             }
@@ -245,7 +251,8 @@ private:
 
             auto variableValue = parseInternal(0);
 
-            auto [variableExprId, variable] = _pool.allocate(variableName, currentVariableId++, frameIndex);
+            auto [variableExprId, variable] =
+                _pool.allocate(variableName, currentVariableId++, frameIndex);
             variable.pushChild(variableValue);
 
             if (!isFirst) {
@@ -314,7 +321,8 @@ private:
             auto [allocatedId, _] = _pool.allocate(_current.data.integer.value);
             exprId = allocatedId;
         } else {
-            auto [allocatedId, _] = _pool.allocate(static_cast<int32_t>(_current.data.integer.value));
+            auto [allocatedId, _] =
+                _pool.allocate(static_cast<int32_t>(_current.data.integer.value));
             exprId = allocatedId;
         }
         consume(TokenType::Integer);
@@ -327,7 +335,8 @@ private:
         return exprId;
     }
 
-    constexpr std::tuple<value::SlotId, uint64_t, bool> lookupVariableByName(std::string_view name) const {
+    constexpr std::tuple<value::SlotId, uint64_t, bool> lookupVariableByName(
+        std::string_view name) const {
         for (const auto& variableListId : _variableStack) {
             auto currentVariableId = variableListId;
             while (true) {
@@ -406,7 +415,8 @@ private:
         expr.pushChild(consumeString());
     }
 
-    constexpr void consumeArguments(Expression& expr, uint64_t maxArgumentsCount = Expression::MAX_CHILDREN) {
+    constexpr void consumeArguments(Expression& expr,
+                                    uint64_t maxArgumentsCount = Expression::MAX_CHILDREN) {
         bool isFirst = true;
         while (!match(TokenType::RightParen) && expr.childrenCount < maxArgumentsCount) {
             if (!isFirst) {
@@ -448,4 +458,4 @@ constexpr ExpressionPool operator""_sbe(const char* str, size_t length) {
     return Parser(std::string_view(str, length)).parse();
 }
 
-}
+}  // namespace mongo::sbe::ctp

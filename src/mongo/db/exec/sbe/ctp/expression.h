@@ -76,7 +76,8 @@ struct VariablesFrame {
 };
 
 struct BuildContext {
-    BuildContext(value::FrameIdGenerator& frameIdGenerator, std::vector<std::unique_ptr<sbe::EExpression>>& indexedPlaceholders)
+    BuildContext(value::FrameIdGenerator& frameIdGenerator,
+                 std::vector<std::unique_ptr<sbe::EExpression>>& indexedPlaceholders)
         : frameIdGenerator(frameIdGenerator), indexedPlaceholders(indexedPlaceholders) {}
 
     value::FrameIdGenerator& frameIdGenerator;
@@ -86,28 +87,23 @@ struct BuildContext {
 
 struct Expression {
     constexpr Expression()
-        : type(ExpressionType::None)
-        , placeholderIndex(0)
-        , stringValue("")
-        , int32Value(0)
-        , int64Value(0)
-        , boolValue(false)
-        , variableId(0)
-        , frameIndex(0)
-        , childrenCount(0)
-        , children()
-    {}
+        : type(ExpressionType::None),
+          placeholderIndex(0),
+          stringValue(""),
+          int32Value(0),
+          int64Value(0),
+          boolValue(false),
+          variableId(0),
+          frameIndex(0),
+          childrenCount(0),
+          children() {}
 
-    explicit constexpr Expression(ExpressionType exprType)
-        : Expression()
-    {
+    explicit constexpr Expression(ExpressionType exprType) : Expression() {
         type = exprType;
     }
 
     template <typename T>
-    explicit constexpr Expression(T value)
-        : Expression()
-    {
+    explicit constexpr Expression(T value) : Expression() {
         if constexpr (std::is_same_v<T, bool>) {
             type = ExpressionType::Boolean;
             boolValue = value;
@@ -125,26 +121,21 @@ struct Expression {
         }
     }
 
-    explicit constexpr Expression(value::SlotId slotId, uint64_t frameId)
-        : Expression()
-    {
+    explicit constexpr Expression(value::SlotId slotId, uint64_t frameId) : Expression() {
         type = ExpressionType::Variable;
         variableId = slotId;
         frameIndex = frameId;
     }
 
     explicit constexpr Expression(std::string_view name, value::SlotId slotId, uint64_t frameId)
-        : Expression()
-    {
+        : Expression() {
         type = ExpressionType::VariableAssignment;
         stringValue = name;
         variableId = slotId;
         frameIndex = frameId;
     }
 
-    explicit constexpr Expression(ExpressionType exprType, std::string_view name)
-        : Expression()
-    {
+    explicit constexpr Expression(ExpressionType exprType, std::string_view name) : Expression() {
         type = exprType;
         stringValue = name;
     }
@@ -153,7 +144,8 @@ struct Expression {
         children[childrenCount++] = childIndex;
     }
 
-    std::unique_ptr<sbe::EExpression> build(const ExpressionPool& exprs, BuildContext& context) const;
+    std::unique_ptr<sbe::EExpression> build(const ExpressionPool& exprs,
+                                            BuildContext& context) const;
 
     ExpressionType type;
     uint64_t placeholderIndex;
@@ -211,4 +203,4 @@ private:
     ExpressionId current = 0;
 };
 
-}
+}  // namespace mongo::sbe::ctp

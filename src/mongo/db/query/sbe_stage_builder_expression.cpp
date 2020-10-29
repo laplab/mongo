@@ -1220,7 +1220,8 @@ public:
         //             ErrorCodes::Error{5126703},
         //             "$arrayElemAt second argument cannot be represented as a 32-bit integer"));
 
-        //     return sbe::makeE<sbe::ELocalBind>(frameId, std::move(binds), std::move(inExpression));
+        //     return sbe::makeE<sbe::ELocalBind>(frameId, std::move(binds),
+        //     std::move(inExpression));
         // }();
 
         // auto anyOfArgumentsIsNullish =
@@ -1235,10 +1236,12 @@ public:
         //                   sbe::makeE<sbe::EConstant>(sbe::value::TypeTags::Null, 0)},
         //     CaseValuePair{std::move(firstArgumentIsNotArray),
         //                   sbe::makeE<sbe::EFail>(ErrorCodes::Error{5126701},
-        //                                          "$arrayElemAt first argument must be an array")},
+        //                                          "$arrayElemAt first argument must be an
+        //                                          array")},
         //     CaseValuePair{std::move(secondArgumentIsNotNumeric),
         //                   sbe::makeE<sbe::EFail>(ErrorCodes::Error{5126702},
-        //                                          "$arrayElemAt second argument must be a number")},
+        //                                          "$arrayElemAt second argument must be a
+        //                                          number")},
         //     sbe::makeE<sbe::EFunction>("getElement",
         //                                sbe::makeEs(arrayRef.clone(), std::move(int32Index))));
 
@@ -2090,7 +2093,8 @@ public:
             }
         )"_sbe;
 
-        auto resultExpr = code(*_context->frameIdGenerator, std::move(input), std::move(replacementIfNull));
+        auto resultExpr =
+            code(*_context->frameIdGenerator, std::move(input), std::move(replacementIfNull));
         _context->pushExpr(std::move(resultExpr));
 
         // auto frameId = _context->frameIdGenerator->generate();

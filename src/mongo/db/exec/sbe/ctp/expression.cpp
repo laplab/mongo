@@ -50,9 +50,10 @@ EPrimBinary::Op getSBEOperatorType(ExpressionType type) {
     }
 }
 
-}
+}  // namespace
 
-std::unique_ptr<EExpression> Expression::build(const ExpressionPool& exprs, BuildContext& context) const {
+std::unique_ptr<EExpression> Expression::build(const ExpressionPool& exprs,
+                                               BuildContext& context) const {
     switch (type) {
         case ExpressionType::Placeholder:
             return std::move(context.indexedPlaceholders[placeholderIndex]);
@@ -80,14 +81,14 @@ std::unique_ptr<EExpression> Expression::build(const ExpressionPool& exprs, Buil
                 return makeE<EPrimBinary>(
                     EPrimBinary::logicOr,
                     makeE<EPrimUnary>(EPrimUnary::logicNot,
-                                            makeE<EFunction>("exists", makeEs(variable->clone()))),
-                    makeE<EFunction>("isNull", makeEs(variable->clone()))
-                );
+                                      makeE<EFunction>("exists", makeEs(variable->clone()))),
+                    makeE<EFunction>("isNull", makeEs(variable->clone())));
             }
 
             if (stringValue == "toInt32") {
                 invariant(childrenCount == 1);
-                return makeE<ENumericConvert>(std::move(compiledChildren[0]), value::TypeTags::NumberInt32);
+                return makeE<ENumericConvert>(std::move(compiledChildren[0]),
+                                              value::TypeTags::NumberInt32);
             }
 
             return makeE<EFunction>(stringValue, std::move(compiledChildren));
@@ -100,10 +101,12 @@ std::unique_ptr<EExpression> Expression::build(const ExpressionPool& exprs, Buil
             return makeE<EConstant>(value::TypeTags::Null, value::bitcastFrom<int64_t>(0));
 
         case ExpressionType::Int32:
-            return makeE<EConstant>(value::TypeTags::NumberInt32, value::bitcastFrom<int32_t>(int32Value));
+            return makeE<EConstant>(value::TypeTags::NumberInt32,
+                                    value::bitcastFrom<int32_t>(int32Value));
 
         case ExpressionType::Int64:
-            return makeE<EConstant>(value::TypeTags::NumberInt64, value::bitcastFrom<int64_t>(int64Value));
+            return makeE<EConstant>(value::TypeTags::NumberInt64,
+                                    value::bitcastFrom<int64_t>(int64Value));
 
         case ExpressionType::Boolean:
             return makeE<EConstant>(value::TypeTags::Boolean, value::bitcastFrom<bool>(boolValue));
@@ -158,7 +161,8 @@ std::unique_ptr<EExpression> Expression::build(const ExpressionPool& exprs, Buil
             auto inBodyExpr = exprs.get(children[1]).build(exprs, context);
 
             auto& frame = context.variableStack.back();
-            auto letExpr = makeE<ELocalBind>(frame.frameId, std::move(frame.binds), std::move(inBodyExpr));
+            auto letExpr =
+                makeE<ELocalBind>(frame.frameId, std::move(frame.binds), std::move(inBodyExpr));
             context.variableStack.pop_back();
 
             return letExpr;
@@ -187,4 +191,4 @@ std::unique_ptr<EExpression> Expression::build(const ExpressionPool& exprs, Buil
     return nullptr;
 }
 
-}
+}  // namespace mongo::sbe::ctp
