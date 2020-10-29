@@ -47,6 +47,10 @@ constexpr ExpressionType getOperatorType(TokenType type) {
             return ExpressionType::And;
         case TokenType::Or:
             return ExpressionType::Or;
+        case TokenType::Plus:
+            return ExpressionType::Add;
+        case TokenType::Minus:
+            return ExpressionType::Subtract;
         default:
             throw std::logic_error("Expected keyword token type");
     }
@@ -74,6 +78,9 @@ constexpr std::pair<BindingPower, BindingPower> getBindingPower(TokenType type) 
             return {3, 4};
         case TokenType::Not:
             return {0, 5};
+        case TokenType::Plus:
+        case TokenType::Minus:
+            return {5, 6};
         default:
             throw std::logic_error("Expected operator token type");
     }

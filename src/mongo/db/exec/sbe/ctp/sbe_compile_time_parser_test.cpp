@@ -137,6 +137,28 @@ TEST_F(SBECompileTimeParserTest, TestLogicOperators) {
     assertExpr(code12(_frameIdGenerator), "( ! false && true ) ");
 }
 
+TEST_F(SBECompileTimeParserTest, TestArithmeticOperators) {
+    constexpr auto code1 = "1 + 2"_sbe;
+    assertExpr(code1(_frameIdGenerator), "( 1 + 2 ) ");
+
+    constexpr auto code2 = "1 - 2"_sbe;
+    assertExpr(code2(_frameIdGenerator), "( 1 - 2 ) ");
+
+    constexpr auto code3 = "1 - 2 + 3"_sbe;
+    assertExpr(code3(_frameIdGenerator), "( ( 1 - 2 ) + 3 ) ");
+
+    constexpr auto code4 = "1 - (2 + 3)"_sbe;
+    assertExpr(code4(_frameIdGenerator), "( 1 - ( 2 + 3 ) ) ");
+}
+
+TEST_F(SBECompileTimeParserTest, TestOperatorPrecedence) {
+    constexpr auto code1 = "1 + 2 && 3 - 4"_sbe;
+    assertExpr(code1(_frameIdGenerator), "( ( 1 + 2 ) && ( 3 - 4 ) ) ");
+
+    constexpr auto code2 = "1 + 2 || 3 - 4"_sbe;
+    assertExpr(code2(_frameIdGenerator), "( ( 1 + 2 ) || ( 3 - 4 ) ) ");
+}
+
 TEST_F(SBECompileTimeParserTest, TestParens) {
     constexpr auto code1 = "(true)"_sbe;
     assertExpr(code1(_frameIdGenerator), "true ");

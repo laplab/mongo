@@ -33,6 +33,25 @@
 
 namespace mongo::sbe::ctp {
 
+namespace {
+
+EPrimBinary::Op getSBEOperatorType(ExpressionType type) {
+    switch (type) {
+        case ExpressionType::Add:
+            return EPrimBinary::add;
+        case ExpressionType::Subtract:
+            return EPrimBinary::sub;
+        case ExpressionType::And:
+            return EPrimBinary::logicAnd;
+        case ExpressionType::Or:
+            return EPrimBinary::logicOr;
+        default:
+            MONGO_UNREACHABLE;
+    }
+}
+
+}
+
 std::unique_ptr<EExpression> Expression::build(const ExpressionPool& exprs, BuildContext& context) const {
     switch (type) {
         case ExpressionType::Placeholder:
@@ -90,14 +109,15 @@ std::unique_ptr<EExpression> Expression::build(const ExpressionPool& exprs, Buil
             return makeE<EConstant>(value::TypeTags::Boolean, value::bitcastFrom<bool>(boolValue));
 
         case ExpressionType::Or:
-        case ExpressionType::And: {
+        case ExpressionType::And:
+        case ExpressionType::Add:
+        case ExpressionType::Subtract: {
             invariant(childrenCount == 2);
 
             auto left = exprs.get(children[0]).build(exprs, context);
             auto right = exprs.get(children[1]).build(exprs, context);
 
-            auto opType = type == ExpressionType::Or ? EPrimBinary::logicOr : EPrimBinary::logicAnd;
-            return makeE<EPrimBinary>(opType, std::move(left), std::move(right));
+            return makeE<EPrimBinary>(getSBEOperatorType(type), std::move(left), std::move(right));
         }
 
         case ExpressionType::If: {

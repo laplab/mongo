@@ -56,10 +56,12 @@ enum class TokenType {
     String,
     Not,
     Skunk,
+    Plus,
+    Minus,
 };
 
 constexpr bool isOperator(TokenType type) {
-    return type == TokenType::Or || type == TokenType::And;
+    return type == TokenType::Or || type == TokenType::And || type == TokenType::Plus || type == TokenType::Minus;
 }
 
 struct Token {
@@ -172,6 +174,12 @@ public:
                 break;
             case '!':
                 type = TokenType::Not;
+                break;
+            case '+':
+                type = TokenType::Plus;
+                break;
+            case '-':
+                type = TokenType::Minus;
                 break;
             case '&': {
                 advance();

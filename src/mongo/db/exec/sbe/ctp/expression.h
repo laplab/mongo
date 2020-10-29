@@ -63,6 +63,8 @@ enum class ExpressionType {
     String,
     Not,
     Skunk,
+    Add,
+    Subtract,
 };
 
 using ExpressionId = uint64_t;
